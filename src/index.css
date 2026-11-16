@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    color-scheme: dark;
+  }
+
+  .font-serif {
+    font-family: 'Cinzel', Georgia, serif;
+  }
+
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Mandatory native <dialog> scroll containment rules from modern-web-guidance */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
