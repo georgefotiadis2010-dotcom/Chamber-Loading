@@ -445,9 +445,9 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
       {/* ==================================================================== */}
       {/* CENTER FLOATING PROMPT & SPEECH BUBBLE                               */}
       {/* ==================================================================== */}
-      {!minimalHud && (
+      {!minimalHud && !hoveredCard && (
         <div className="pointer-events-none flex flex-col items-center justify-center my-auto gap-1 translate-y-6">
-          {phase === 'PLAYER_SELECT' && !hoveredCard ? (
+          {phase === 'PLAYER_SELECT' ? (
             <>
               <div className="font-black text-2xl sm:text-4xl tracking-wider uppercase text-[#fff3c4] cartoon-stroke-lg text-center leading-none">
                 {hasSelectedCard ? 'CARD LOCKED IN!' : 'YOUR TURN'}
@@ -487,10 +487,10 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
       )}
 
       {/* ==================================================================== */}
-      {/* HOVERED CARD TOOLTIP PREVIEW                                         */}
+      {/* HOVERED CARD TOOLTIP PREVIEW (Top-center so 3D card stays clear)     */}
       {/* ==================================================================== */}
       {hoveredCard && phase !== 'GAME_OVER' && phase !== 'VICTORY' && (
-        <div className="pointer-events-none flex justify-center mb-1">
+        <div className="pointer-events-none flex justify-center mt-2 mb-auto">
           <div
             style={{ borderColor: hoveredCard.def.borderColor }}
             className="w-full max-w-sm rounded-2xl bg-[#24150c]/95 border-2 px-4 py-2.5 backdrop-blur-md shadow-2xl"

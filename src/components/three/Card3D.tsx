@@ -118,11 +118,11 @@ export const Card3D: React.FC<Card3DProps> = ({
       targetRotZ = 0;
       targetScale = 0.78;
     } else if (hovered && !isTableTrap && isPlayer) {
-      targetPos.y = 0.92;
-      targetPos.z = rowZ + 0.18;
-      targetRotX = 0.74;
+      targetPos.y = 0.72;
+      targetPos.z = rowZ - 0.08;
+      targetRotX = 0.72;
       targetRotY = -fanOffset * 0.02;
-      targetScale = 1.08;
+      targetScale = 0.88;
     }
 
     const speed = Math.min(1, delta * 11);
