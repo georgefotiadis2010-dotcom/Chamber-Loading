@@ -2,21 +2,60 @@ import {
   CardDef,
   CardId,
   CardInstance,
+  CardRarity,
   ChamberSlot,
   OpponentDef,
   ShellType,
 } from '../types/game';
 
+export const RARITY_META: Record<
+  CardRarity,
+  { label: string; borderHex: string; badgeBg: string; textHex: string; weight: number }
+> = {
+  common: {
+    label: 'COMMON',
+    borderHex: '#a89070',
+    badgeBg: '#44403c',
+    textHex: '#e7e5e4',
+    weight: 3,
+  },
+  uncommon: {
+    label: 'UNCOMMON',
+    borderHex: '#34d399',
+    badgeBg: '#065f46',
+    textHex: '#a7f3d0',
+    weight: 2,
+  },
+  rare: {
+    label: 'RARE',
+    borderHex: '#60a5fa',
+    badgeBg: '#1e3a8a',
+    textHex: '#bfdbfe',
+    weight: 1,
+  },
+  legendary: {
+    label: 'LEGENDARY',
+    borderHex: '#fbbf24',
+    badgeBg: '#78350f',
+    textHex: '#fef08a',
+    weight: 1,
+  },
+};
+
 export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
+  // =========================================================================
+  // COMMON (7 total, including kept Load Live)
+  // =========================================================================
   red_crimsonslug: {
     id: 'red_crimsonslug',
     name: 'LOAD LIVE',
     color: 'red',
     category: 'red',
+    rarity: 'common',
     effectType: 'load_live',
     shortTag: '+1 LIVE (1 DMG)',
-    description: 'Loads 1 Live brass shell (1 DMG) into a remaining chamber.',
-    chamberEffectText: 'Load 1 Live shell (1 DMG) into the cylinder.',
+    description: 'Loads 1 Live brass shell (1 DMG) into a random Blank slot in the drum.',
+    chamberEffectText: 'Load 1 Live shell (1 DMG) into the drum.',
     accentColor: '#f87171',
     borderColor: '#b93829',
     headerBgColor: '#b93829',
@@ -28,105 +67,445 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     }),
   },
 
-  blue_silverblank: {
-    id: 'blue_silverblank',
-    name: 'STRIP SHELL',
+  blue_brace: {
+    id: 'blue_brace',
+    name: 'BRACE',
     color: 'blue',
     category: 'blue',
-    effectType: 'strip_live',
-    shortTag: 'REMOVE 1 LIVE',
-    description:
-      'Removes 1 Live shell from the remaining chambers, turning it into a Blank.',
-    chamberEffectText: 'Remove 1 Live shell from the cylinder (to Blank).',
-    accentColor: '#60a5fa',
-    borderColor: '#3b6ca8',
-    headerBgColor: '#3b6ca8',
-    artBgColor: '#1e334f',
-    badgeText: 'SABOTAGE • STRIP',
-    onChamberFire: () => ({
-      damageToTarget: 0,
-      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
-    }),
-  },
-
-  purple_recoilcurse: {
-    id: 'purple_recoilcurse',
-    name: 'SPIN DRUM',
-    color: 'purple',
-    category: 'purple',
-    effectType: 'spin_drum',
-    shortTag: 'SHUFFLE DRUM',
-    description:
-      'Spins and shuffles all remaining chambers in the cylinder before the shot.',
-    chamberEffectText: 'Spin & shuffle all remaining chambers.',
-    accentColor: '#c084fc',
-    borderColor: '#764594',
-    headerBgColor: '#764594',
-    artBgColor: '#382246',
-    badgeText: 'TRICK • SPIN',
-    onChamberFire: () => ({
-      damageToTarget: 0,
-      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
-    }),
-  },
-
-  red_hollowpoint: {
-    id: 'red_hollowpoint',
-    name: 'HEAVY SLUG',
-    color: 'red',
-    category: 'red',
-    effectType: 'load_heavy',
-    shortTag: '+1 HEAVY (2 DMG)',
-    description:
-      'Loads 1 Heavy Live shell (2 DMG) into a remaining chamber.',
-    chamberEffectText: 'Load 1 Heavy Live shell (2 DMG) into cylinder.',
-    accentColor: '#fb923c',
-    borderColor: '#cf5b1d',
-    headerBgColor: '#cf5b1d',
-    artBgColor: '#4e2515',
-    badgeText: 'HEAVY • 2 DMG',
-    onChamberFire: () => ({
-      damageToTarget: 2,
-      logMessage: 'BOOM! HEAVY SLUG FIRED — 2 DMG!',
-    }),
-  },
-
-  blue_hairtrigger: {
-    id: 'blue_hairtrigger',
-    name: 'PEEK CHAMBER',
-    color: 'blue',
-    category: 'blue',
-    effectType: 'peek_next',
-    shortTag: 'PEEK NEXT SHOT',
-    description:
-      'Peeks at the next chamber in the cylinder so you know if it is Live or Blank.',
-    chamberEffectText: 'Reveal whether the next chamber is Live or Blank.',
+    rarity: 'common',
+    effectType: 'brace',
+    shortTag: '+1 SHIELD THIS TURN',
+    description: 'Gain 1 Shield for this turn. Blocks 1 DMG if the shot hits you.',
+    chamberEffectText: 'Gain 1 Shield for this turn (blocks 1 DMG).',
     accentColor: '#38bdf8',
     borderColor: '#2d7a9c',
     headerBgColor: '#2d7a9c',
     artBgColor: '#193b4d',
-    badgeText: 'INTEL • PEEK',
+    badgeText: 'DEFENSE • SHIELD',
     onChamberFire: () => ({
       damageToTarget: 0,
       logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
     }),
   },
 
-  purple_jinxpin: {
-    id: 'purple_jinxpin',
-    name: 'DEFLECT',
+  blue_dumpshell: {
+    id: 'blue_dumpshell',
+    name: 'DUMP SHELL',
+    color: 'blue',
+    category: 'blue',
+    rarity: 'common',
+    effectType: 'dump_shell',
+    shortTag: 'REMOVE 1 LIVE',
+    description: 'Removes 1 random Live shell from the drum, turning it into a Blank.',
+    chamberEffectText: 'Remove 1 random Live shell from the drum.',
+    accentColor: '#60a5fa',
+    borderColor: '#3b6ca8',
+    headerBgColor: '#3b6ca8',
+    artBgColor: '#1e334f',
+    badgeText: 'CONTROL • DUMP',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  blue_quickdraw: {
+    id: 'blue_quickdraw',
+    name: 'QUICK DRAW',
+    color: 'blue',
+    category: 'blue',
+    rarity: 'common',
+    effectType: 'quick_draw',
+    shortTag: '+1 CARD NEXT TURN',
+    description: 'Draw 1 extra card at the start of your next turn.',
+    chamberEffectText: 'Draw +1 extra card next turn.',
+    accentColor: '#2dd4bf',
+    borderColor: '#0f766e',
+    headerBgColor: '#0f766e',
+    artBgColor: '#134e4a',
+    badgeText: 'TEMPO • DRAW',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  red_doubletap: {
+    id: 'red_doubletap',
+    name: 'DOUBLE TAP',
+    color: 'red',
+    category: 'red',
+    rarity: 'common',
+    effectType: 'double_tap',
+    shortTag: '+1 LIVE · +1 BONUS DMG',
+    description:
+      'Loads 1 Live shell into the drum. If any Live shell fires this turn, it deals +1 bonus DMG.',
+    chamberEffectText: '+1 Live shell; Live hits deal +1 DMG this turn.',
+    accentColor: '#fb923c',
+    borderColor: '#c2410c',
+    headerBgColor: '#c2410c',
+    artBgColor: '#431407',
+    badgeText: 'AMMO • +1 DMG',
+    onChamberFire: () => ({
+      damageToTarget: 1,
+      logMessage: 'BANG! LIVE SHELL FIRED — 1 DMG!',
+    }),
+  },
+
+  purple_riggedspin: {
+    id: 'purple_riggedspin',
+    name: 'RIGGED SPIN',
     color: 'purple',
     category: 'purple',
-    effectType: 'deflect',
-    shortTag: 'REDIRECT SHOT',
+    rarity: 'common',
+    effectType: 'rigged_spin',
+    shortTag: '75% AIM AT FOE',
+    description: 'Tilts this turn’s revolver spin to 75% Opponent / 25% You.',
+    chamberEffectText: 'Tilt spin odds to 75% Opponent / 25% You.',
+    accentColor: '#c084fc',
+    borderColor: '#7e22ce',
+    headerBgColor: '#7e22ce',
+    artBgColor: '#3b0764',
+    badgeText: 'TRICK • 75% ODDS',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  blue_fieldpatch: {
+    id: 'blue_fieldpatch',
+    name: 'FIELD PATCH',
+    color: 'blue',
+    category: 'blue',
+    rarity: 'common',
+    effectType: 'field_patch',
+    shortTag: '-1 LIVE · HEAL ON BLANK',
     description:
-      'If the 50/50 spin lands on you this turn, redirects the shot to the other player.',
-    chamberEffectText: 'If targeted this turn, redirect shot to opponent.',
+      'Removes 1 random Live shell from the drum. If this turn’s shot is a Blank, heal 1 HP.',
+    chamberEffectText: '-1 Live shell; heal 1 HP if shot is Blank.',
+    accentColor: '#4ade80',
+    borderColor: '#15803d',
+    headerBgColor: '#15803d',
+    artBgColor: '#14532d',
+    badgeText: 'RECOVERY • PATCH',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  // =========================================================================
+  // UNCOMMON (6)
+  // =========================================================================
+  red_concussion: {
+    id: 'red_concussion',
+    name: 'CONCUSSION ROUND',
+    color: 'red',
+    category: 'red',
+    rarity: 'uncommon',
+    effectType: 'concussion_round',
+    shortTag: '1 DMG + DISCARD 1',
+    description:
+      'Loads 1 Concussion shell (1 DMG) that forces the target to discard 1 random card if hit.',
+    chamberEffectText: 'Load 1 Concussion shell (1 DMG + Discard 1).',
+    accentColor: '#fb7185',
+    borderColor: '#be123c',
+    headerBgColor: '#be123c',
+    artBgColor: '#4c0519',
+    badgeText: 'CONCUSSION • 1 DMG',
+    onChamberFire: () => ({
+      damageToTarget: 1,
+      discardOnHit: 1,
+      logMessage: 'BOOM! CONCUSSION ROUND — 1 DMG + DISCARD 1 CARD!',
+    }),
+  },
+
+  red_twinload: {
+    id: 'red_twinload',
+    name: 'TWIN LOAD',
+    color: 'red',
+    category: 'red',
+    rarity: 'uncommon',
+    effectType: 'twin_load',
+    shortTag: '+2 LIVE SHELLS',
+    description: 'Loads 2 Live shells (1 DMG each) into random Blank slots in the drum.',
+    chamberEffectText: 'Load 2 Live shells into random Blank slots.',
+    accentColor: '#ef4444',
+    borderColor: '#991b1b',
+    headerBgColor: '#991b1b',
+    artBgColor: '#450a0a',
+    badgeText: 'AMMO • +2 LIVE',
+    onChamberFire: () => ({
+      damageToTarget: 1,
+      logMessage: 'BANG! LIVE SHELL FIRED — 1 DMG!',
+    }),
+  },
+
+  purple_misfire: {
+    id: 'purple_misfire',
+    name: 'MISFIRE',
+    color: 'purple',
+    category: 'purple',
+    rarity: 'uncommon',
+    effectType: 'misfire',
+    shortTag: 'NEGATE LIVE ON YOU',
+    description:
+      'If a Live shell lands on You this turn, it misfires (0 DMG) and turns into a Blank.',
+    chamberEffectText: 'If shot lands on You, Live deals 0 DMG.',
+    accentColor: '#a78bfa',
+    borderColor: '#6d28d9',
+    headerBgColor: '#6d28d9',
+    artBgColor: '#2e1065',
+    badgeText: 'TRICK • MISFIRE',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  purple_hairtrigger: {
+    id: 'purple_hairtrigger',
+    name: 'HAIR TRIGGER',
+    color: 'purple',
+    category: 'purple',
+    rarity: 'uncommon',
+    effectType: 'hair_trigger',
+    shortTag: 'FIRE AGAIN ON BLANK',
+    description:
+      'If this turn’s shot is a Blank, immediately spin and fire a 2nd chamber at the same target.',
+    chamberEffectText: 'On Blank, fire another random chamber!',
+    accentColor: '#e879f9',
+    borderColor: '#a21caf',
+    headerBgColor: '#a21caf',
+    artBgColor: '#4a044e',
+    badgeText: 'TRICK • DOUBLE PULL',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  purple_jammer: {
+    id: 'purple_jammer',
+    name: 'JAMMER',
+    color: 'purple',
+    category: 'purple',
+    rarity: 'uncommon',
+    effectType: 'jammer',
+    shortTag: 'CANCEL RED CARD',
+    description:
+      'If your opponent played a Red (Ammo) card this turn, cancel its effect and load 1 Live shell.',
+    chamberEffectText: 'Cancel foe Red card & load 1 Live shell.',
+    accentColor: '#c084fc',
+    borderColor: '#6b21a8',
+    headerBgColor: '#6b21a8',
+    artBgColor: '#3b0764',
+    badgeText: 'COUNTER • JAM',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  red_bloodpact: {
+    id: 'red_bloodpact',
+    name: 'BLOOD PACT',
+    color: 'red',
+    category: 'red',
+    rarity: 'uncommon',
+    effectType: 'blood_pact',
+    shortTag: '-1 HP · 2 DMG PIERCE',
+    description:
+      'Pay 1 HP (disabled at 1 HP) to load & fire a 2 DMG Piercing shell (ignores Shield & Ricochet).',
+    chamberEffectText: 'Pay 1 HP: fire 2 DMG Piercing shell this turn.',
+    accentColor: '#f43f5e',
+    borderColor: '#881337',
+    headerBgColor: '#881337',
+    artBgColor: '#4c0519',
+    badgeText: 'PIERCE • 2 DMG',
+    onChamberFire: () => ({
+      damageToTarget: 2,
+      piercing: true,
+      logMessage: 'PIERCING BLAST! BLOOD PACT FIRED — 2 DMG!',
+    }),
+  },
+
+  // =========================================================================
+  // RARE (5)
+  // =========================================================================
+  purple_ricochet: {
+    id: 'purple_ricochet',
+    name: 'RICOCHET',
+    color: 'purple',
+    category: 'purple',
+    rarity: 'rare',
+    effectType: 'ricochet',
+    shortTag: 'REDIRECT LIVE SHOT',
+    description:
+      'If the spin lands on You and the shell is Live (non-piercing), redirect the shot to your Opponent.',
+    chamberEffectText: 'Redirect a Live shot from You to Opponent.',
     accentColor: '#a3e635',
-    borderColor: '#588448',
-    headerBgColor: '#588448',
-    artBgColor: '#2f3d27',
-    badgeText: 'TRICK • DEFLECT',
+    borderColor: '#4d7c0f',
+    headerBgColor: '#4d7c0f',
+    artBgColor: '#1a2e05',
+    badgeText: 'TRICK • RICOCHET',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  blue_bandolier: {
+    id: 'blue_bandolier',
+    name: 'BANDOLIER',
+    color: 'blue',
+    category: 'blue',
+    rarity: 'rare',
+    effectType: 'bandolier',
+    shortTag: '+1 SHIELD · +1 DRAW',
+    description: 'Gain 1 Shield this turn and draw +1 extra card at the start of next turn.',
+    chamberEffectText: 'Gain 1 Shield this turn & +1 draw next turn.',
+    accentColor: '#38bdf8',
+    borderColor: '#0369a1',
+    headerBgColor: '#0369a1',
+    artBgColor: '#0c4a6e',
+    badgeText: 'RARE • GEAR',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  purple_sleightofhand: {
+    id: 'purple_sleightofhand',
+    name: 'SLEIGHT OF HAND',
+    color: 'purple',
+    category: 'purple',
+    rarity: 'rare',
+    effectType: 'sleight_of_hand',
+    shortTag: 'CANCEL & STEAL CARD',
+    description:
+      'Cancels your opponent’s card this turn and puts a copy of it into your hand for later.',
+    chamberEffectText: 'Cancel foe card & add a copy to your hand.',
+    accentColor: '#d946ef',
+    borderColor: '#86198f',
+    headerBgColor: '#86198f',
+    artBgColor: '#4a044e',
+    badgeText: 'COUNTER • STEAL',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  blue_adrenaline: {
+    id: 'blue_adrenaline',
+    name: 'ADRENALINE SHOT',
+    color: 'blue',
+    category: 'blue',
+    rarity: 'rare',
+    effectType: 'adrenaline_shot',
+    shortTag: 'HEAL 1 (OR 2 + AIM)',
+    description:
+      'Heal 1 HP. If at 1 HP, heal 2 HP instead and force the gun to aim at your Opponent this turn.',
+    chamberEffectText: 'Heal 1 HP (at 1 HP: Heal 2 + Aim at Foe).',
+    accentColor: '#22d3ee',
+    borderColor: '#0e7490',
+    headerBgColor: '#0e7490',
+    artBgColor: '#164e63',
+    badgeText: 'RARE • HEAL',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+    }),
+  },
+
+  red_russianroulette: {
+    id: 'red_russianroulette',
+    name: 'RUSSIAN ROULETTE',
+    color: 'red',
+    category: 'red',
+    rarity: 'rare',
+    effectType: 'russian_roulette',
+    shortTag: 'FILL DRUM · LOCK 50/50',
+    description:
+      'Fills all remaining Blank slots with Live shells. Locks target spin to 50/50 (no rig/redirect).',
+    chamberEffectText: 'Fill all Blanks with Live! Lock 50/50.',
+    accentColor: '#f87171',
+    borderColor: '#991b1b',
+    headerBgColor: '#b91c1c',
+    artBgColor: '#450a0a',
+    badgeText: 'CHAOS • ALL LIVE',
+    onChamberFire: () => ({
+      damageToTarget: 1,
+      logMessage: 'BANG! RUSSIAN ROULETTE LIVE — 1 DMG!',
+    }),
+  },
+
+  // =========================================================================
+  // LEGENDARY (3)
+  // =========================================================================
+  gold_goldengun: {
+    id: 'gold_goldengun',
+    name: 'GOLDEN GUN',
+    color: 'gold',
+    category: 'gold',
+    rarity: 'legendary',
+    effectType: 'golden_gun',
+    shortTag: '2 DMG AT FOE',
+    description:
+      'Loads & fires a 2 DMG Golden Bullet aimed at your Opponent this turn (can still be Ricocheted).',
+    chamberEffectText: 'Fire 2 DMG Golden Bullet at Opponent!',
+    accentColor: '#fde047',
+    borderColor: '#ca8a04',
+    headerBgColor: '#b45309',
+    artBgColor: '#422006',
+    badgeText: 'LEGENDARY • 2 DMG',
+    onChamberFire: () => ({
+      damageToTarget: 2,
+      logMessage: 'GOLDEN SHOT! 2 DMG BLAST!',
+    }),
+  },
+
+  gold_silverbullet: {
+    id: 'gold_silverbullet',
+    name: 'SILVER BULLET',
+    color: 'gold',
+    category: 'gold',
+    rarity: 'legendary',
+    effectType: 'silver_bullet',
+    shortTag: '3 DMG · +2 DRAW IF SAFE',
+    description:
+      'Loads a 3 DMG Silver Bullet into the drum. If you take 0 DMG this turn, draw +2 cards next turn.',
+    chamberEffectText: 'Load 3 DMG Silver Bullet; +2 draw if unscathed.',
+    accentColor: '#facc15',
+    borderColor: '#a16207',
+    headerBgColor: '#92400e',
+    artBgColor: '#27272a',
+    badgeText: 'LEGENDARY • 3 DMG',
+    onChamberFire: () => ({
+      damageToTarget: 3,
+      logMessage: 'SILVER BULLET! DEVASTATING 3 DMG!',
+    }),
+  },
+
+  gold_rewind: {
+    id: 'gold_rewind',
+    name: 'REWIND CYLINDER',
+    color: 'gold',
+    category: 'gold',
+    rarity: 'legendary',
+    effectType: 'rewind_cylinder',
+    shortTag: 'CHEAT DEATH · RESET DRUM',
+    description:
+      'If you would take lethal damage this turn, undo the shot, survive at 1 HP, and reset the drum.',
+    chamberEffectText: 'Survive lethal hit at 1 HP & reset drum.',
+    accentColor: '#fde047',
+    borderColor: '#d97706',
+    headerBgColor: '#b45309',
+    artBgColor: '#3f2e08',
+    badgeText: 'LEGENDARY • REWIND',
     onChamberFire: () => ({
       damageToTarget: 0,
       logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
@@ -134,39 +513,35 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
   },
 };
 
-export const ALL_CARD_IDS: CardId[] = [
-  'red_crimsonslug',
-  'blue_silverblank',
-  'purple_recoilcurse',
-  'red_hollowpoint',
-  'blue_hairtrigger',
-  'purple_jinxpin',
-];
+export const ALL_CARD_IDS: CardId[] = Object.keys(CARD_DEFINITIONS) as CardId[];
 
-// Simple, iconic 3-card starter hand: LOAD LIVE, STRIP SHELL, SPIN DRUM
+// Starter 3-card hand: LOAD LIVE, BRACE, DUMP SHELL
 export const HERO_TRIO_IDS: CardId[] = [
   'red_crimsonslug',
-  'blue_silverblank',
-  'purple_recoilcurse',
+  'blue_brace',
+  'blue_dumpshell',
 ];
 
-// Shared deck weighted toward core shell manipulation + tactical tricks
-export const SHARED_DECK_IDS: CardId[] = [
-  'red_crimsonslug',
-  'red_crimsonslug',
-  'red_crimsonslug',
-  'blue_silverblank',
-  'blue_silverblank',
-  'blue_silverblank',
-  'purple_recoilcurse',
-  'purple_recoilcurse',
-  'red_hollowpoint',
-  'red_hollowpoint',
-  'blue_hairtrigger',
-  'blue_hairtrigger',
-  'purple_jinxpin',
-  'purple_jinxpin',
-];
+// Shared deck weighted by rarity (Common x3, Uncommon x2, Rare x1, Legendary x1)
+export const SHARED_DECK_IDS: CardId[] = ALL_CARD_IDS.flatMap((id) => {
+  const w = RARITY_META[CARD_DEFINITIONS[id].rarity].weight;
+  return Array.from({ length: w }, () => id);
+});
+
+export function getWeightedDraftCards(count = 3): CardId[] {
+  const pool = ALL_CARD_IDS.flatMap((id) => {
+    const r = CARD_DEFINITIONS[id].rarity;
+    const w = r === 'common' ? 4 : r === 'uncommon' ? 3 : r === 'rare' ? 2 : 1;
+    return Array.from({ length: w }, () => id);
+  });
+  const picked: CardId[] = [];
+  const shuffled = shuffleArray(pool);
+  for (const id of shuffled) {
+    if (!picked.includes(id)) picked.push(id);
+    if (picked.length >= count) break;
+  }
+  return picked;
+}
 
 export const LADDER_OPPONENTS: OpponentDef[] = [
   {
@@ -368,10 +743,20 @@ export function buildShuffledRoundCylinder(loadedCards: CardInstance[]): Chamber
   }));
 }
 
+export function isLiveChamberCard(card: CardInstance | null): boolean {
+  if (!card) return false;
+  return (
+    card.def.color === 'red' ||
+    card.def.id === 'gold_goldengun' ||
+    card.def.id === 'gold_silverbullet'
+  );
+}
+
 export function countChamberCardTypes(slots: ChamberSlot[]) {
   let red = 0;
   let blue = 0;
   let purple = 0;
+  let gold = 0;
   let empty = 0;
   let remaining = 0;
 
@@ -382,9 +767,10 @@ export function countChamberCardTypes(slots: ChamberSlot[]) {
     else if (slot.card.def.color === 'red') red++;
     else if (slot.card.def.color === 'blue') blue++;
     else if (slot.card.def.color === 'purple') purple++;
+    else if (slot.card.def.color === 'gold') gold++;
   }
 
-  return { red, blue, purple, empty, remaining };
+  return { red: red + gold, blue, purple, gold, empty, remaining };
 }
 
 /**
@@ -397,9 +783,10 @@ export function slotsToShellTypes(
   return slots.map((slot) => {
     if (slot.spent) return 'empty';
     if (hideUnrevealed && !slot.revealed) {
-      return slot.card?.def.color === 'red' ? 'live' : 'blank';
+      return isLiveChamberCard(slot.card) ? 'live' : 'blank';
     }
     if (!slot.card) return 'blank';
+    if (slot.card.def.color === 'gold') return 'heavy';
     if (slot.card.def.color === 'red') return 'live';
     if (slot.card.def.color === 'blue') return 'blank';
     return 'heavy';
@@ -410,7 +797,7 @@ export function decideAiLoadSelection(aiHand: CardInstance[]): CardInstance[] {
   if (aiHand.length <= 1) return [...aiHand];
   const scored = aiHand.map((card) => {
     let loadScore = Math.random() * 5;
-    if (card.def.color === 'red') loadScore += 8;
+    if (card.def.color === 'red' || card.def.color === 'gold') loadScore += 8;
     else if (card.def.color === 'purple') loadScore += 6;
     else loadScore += 3;
     return { card, loadScore };
@@ -427,40 +814,62 @@ export function decideAiTurnAction(
   if (aiHand.length === 0) return null;
 
   const { red, remaining } = remainingCounts;
-  const byEffect = (effect: CardInstance['def']['effectType']) =>
-    aiHand.find((c) => c.def.effectType === effect);
+  const playableHand = aiHand.filter(
+    (c) => !(c.def.effectType === 'blood_pact' && aiHp <= 1)
+  );
+  if (playableHand.length === 0) return null;
 
-  // 50/50 guessing game:
-  // If there are no live shells yet, AI wants to load one (or peek)
+  const byEffect = (effect: CardInstance['def']['effectType']) =>
+    playableHand.find((c) => c.def.effectType === effect);
+
+  // If AI is at 1 HP, prioritize survival/heal/cheat death
+  if (aiHp <= 1) {
+    return (
+      byEffect('adrenaline_shot') ??
+      byEffect('rewind_cylinder') ??
+      byEffect('misfire') ??
+      byEffect('ricochet') ??
+      byEffect('brace') ??
+      byEffect('bandolier') ??
+      byEffect('field_patch') ??
+      byEffect('golden_gun') ??
+      null
+    );
+  }
+
+  // If there are no live shells yet, AI wants to load or force a shot
   if (red === 0 && remaining > 0) {
     return (
-      byEffect('load_heavy') ??
+      byEffect('golden_gun') ??
+      byEffect('silver_bullet') ??
+      byEffect('twin_load') ??
+      byEffect('concussion_round') ??
+      byEffect('double_tap') ??
       byEffect('load_live') ??
-      byEffect('peek_next') ??
+      byEffect('quick_draw') ??
       null
     );
   }
 
-  // If AI is low HP or drum is dangerous (2+ live shells), AI prefers defense/deflect
-  if ((aiHp <= 1 || red >= 2) && red > 0) {
+  // If drum is dangerous (2+ live shells), AI leans defensive/tricks
+  if (red >= 2) {
     return (
-      byEffect('deflect') ??
-      byEffect('strip_live') ??
-      (Math.random() < 0.65 ? byEffect('spin_drum') : undefined) ??
+      byEffect('ricochet') ??
+      byEffect('misfire') ??
+      byEffect('sleight_of_hand') ??
+      byEffect('jammer') ??
+      byEffect('dump_shell') ??
+      byEffect('field_patch') ??
+      byEffect('brace') ??
+      byEffect('rigged_spin') ??
       null
     );
   }
 
-  // Otherwise mix between loading live, deflecting, peeking, or passing
+  // Otherwise pick a tactical card or pass occasionally
   const roll = Math.random();
-  if (roll < 0.4 && red < remaining) {
-    return byEffect('load_live') ?? byEffect('load_heavy') ?? null;
-  }
-  if (roll < 0.65) {
-    return byEffect('deflect') ?? byEffect('peek_next') ?? null;
-  }
-  if (roll < 0.8) {
-    return byEffect('strip_live') ?? byEffect('spin_drum') ?? null;
+  if (roll < 0.85) {
+    return playableHand[Math.floor(Math.random() * playableHand.length)];
   }
 
   return null;

@@ -4,6 +4,7 @@ import {
   CardId,
   CardInstance,
   ChamberSlot,
+  LastFiredShotInfo,
   TurnPhase,
 } from './types/game';
 import {
@@ -12,6 +13,7 @@ import {
   createCardInstance,
   createHeroTrioHand,
   decideAiTurnAction,
+  isLiveChamberCard,
   LADDER_OPPONENTS,
   SHARED_DECK_IDS,
   shuffleArray,
@@ -23,6 +25,15 @@ import { soundEngine } from './audio/soundEngine';
 
 function createShuffledSharedDeck(): CardInstance[] {
   return shuffleArray(SHARED_DECK_IDS).map((id) => createCardInstance(id));
+}
+
+function createInitialOpponentHand(): CardInstance[] {
+  return [
+    createCardInstance('red_crimsonslug'),
+    createCardInstance('blue_brace'),
+    createCardInstance('blue_dumpshell'),
+    createCardInstance('purple_riggedspin'),
+  ];
 }
 
 export const App: React.FC = () => {
@@ -81,15 +92,20 @@ export const App: React.FC = () => {
     LADDER_OPPONENTS[0].tauntIntro
   );
   const [lastTurnSummary, setLastTurnSummary] = useState<string | null>(null);
+  const [lastFiredShot, setLastFiredShot] = useState<LastFiredShotInfo | null>(null);
+  const playerBonusDrawRef = useRef<number>(0);
+  const opponentBonusDrawRef = useRef<number>(0);
+
   const pendingContinueRef = useRef<{
     pCard: CardInstance | null;
     oCard: CardInstance | null;
-    chamberIdx: number;
     workingPHand: CardInstance[];
     workingOHand: CardInstance[];
     workingPHp: number;
     workingOHp: number;
     currentRound: number;
+    remainingUnspent: number;
+    drumReset: boolean;
   } | null>(null);
 
   // Shared 6-Chamber Cylinder (Starts with 1 Live + 5 Blanks)
@@ -100,17 +116,14 @@ export const App: React.FC = () => {
   const [showChamberCounts, setShowChamberCounts] = useState<boolean>(true);
   const [peekedSlotInfo, setPeekedSlotInfo] = useState<string | null>(null);
 
-  // Player foreground hand starts with the 3 iconic starter cards: LOAD LIVE, STRIP SHELL, SPIN DRUM
+  // Player foreground hand starts with the 3 iconic starter cards: LOAD LIVE, BRACE, DUMP SHELL
   const [playerHand, setPlayerHand] = useState<CardInstance[]>(() =>
     createHeroTrioHand()
   );
   // Opponent far hand starts with 4 face-up cards across the top of the wood table
-  const [opponentHand, setOpponentHand] = useState<CardInstance[]>(() => [
-    createCardInstance('red_crimsonslug'),
-    createCardInstance('blue_silverblank'),
-    createCardInstance('purple_recoilcurse'),
-    createCardInstance('blue_hairtrigger'),
-  ]);
+  const [opponentHand, setOpponentHand] = useState<CardInstance[]>(() =>
+    createInitialOpponentHand()
+  );
 
   const [selectedLoadCards, setSelectedLoadCards] = useState<CardInstance[]>([]);
   const [selectedCard, setSelectedCard] = useState<CardInstance | null>(null);
@@ -194,21 +207,22 @@ export const App: React.FC = () => {
       setSelectedLoadCards([]);
       setSelectedCard(null);
       setPeekedSlotInfo(null);
+      setLastFiredShot(null);
       setPlayerHand(nextPHand);
       setOpponentHand(nextOHand);
       setRoundNumber(nextRound);
       setPhase('SPIN_CYLINDERS');
       soundEngine.playCylinderSpin();
-      setStatusBanner(`ROUND ${nextRound} — SPINNING 6-CHAMBER CYLINDER`);
+      setStatusBanner(`ROUND ${nextRound} — FRESH 6-CHAMBER DRUM`);
       setSubBanner(
-        `${liveSeeds.length} Live & ${6 - liveSeeds.length} Blank shells loaded into the drum...`
+        `${liveSeeds.length} Live & ${6 - liveSeeds.length} Blank shells loaded. Spins randomly every turn!`
       );
 
       schedule(() => {
         setPhase('PLAYER_SELECT');
         setStatusBanner('50/50 BET — CHOOSE YOUR CARD');
         setSubBanner(
-          'Pick a card (or pass) & ring the Bell. Gun picks 50/50 after cards reveal!'
+          'Pick a card (or pass) & ring the Bell. Drum spins randomly each turn!'
         );
       }, 1600);
     },
@@ -220,6 +234,8 @@ export const App: React.FC = () => {
     (targetStageIdx: number) => {
       clearAllTimeouts();
       pendingContinueRef.current = null;
+      playerBonusDrawRef.current = 0;
+      opponentBonusDrawRef.current = 0;
       const targetOpp = LADDER_OPPONENTS[targetStageIdx];
       sharedDeckRef.current = createShuffledSharedDeck();
       discardPileRef.current = [];
@@ -231,6 +247,7 @@ export const App: React.FC = () => {
       setTurnNumber(1);
       setTurnTarget('opponent');
       setLastTurnSummary(null);
+      setLastFiredShot(null);
       setGunMuzzleFlash(false);
       setGunDryFire(false);
       setOpponentDamagedAnim(false);
@@ -247,21 +264,38 @@ export const App: React.FC = () => {
       setSelectedCard(null);
       setPeekedSlotInfo(null);
       setPlayerHand(createHeroTrioHand());
-      setOpponentHand([
-        createCardInstance('red_crimsonslug'),
-        createCardInstance('blue_silverblank'),
-        createCardInstance('purple_recoilcurse'),
-        createCardInstance('blue_hairtrigger'),
-      ]);
+      setOpponentHand(createInitialOpponentHand());
       setRoundNumber(1);
       setPhase('PLAYER_SELECT');
       setStatusBanner('50/50 BET — CHOOSE YOUR CARD');
       setSubBanner(
-        'Pick a card (or pass) & ring the Bell. Gun picks 50/50 after cards reveal!'
+        'Pick a card (or pass) & ring the Bell. Drum spins randomly each turn!'
       );
     },
     [syncDeckCounts]
   );
+
+  interface TurnModifiers {
+    playerShield: number;
+    opponentShield: number;
+    bonusLiveDmg: number;
+    playerBonusDrawNext: number;
+    opponentBonusDrawNext: number;
+    silverBulletCaster: { player: boolean; opponent: boolean };
+    fieldPatchCaster: { player: boolean; opponent: boolean };
+    riggedBy: { player: boolean; opponent: boolean };
+    forcedAim: ActorSide | null;
+    lock5050: boolean;
+    misfireActive: { player: boolean; opponent: boolean };
+    ricochetActive: { player: boolean; opponent: boolean };
+    hairTriggerActive: boolean;
+    rewindActive: { player: boolean; opponent: boolean };
+    guaranteedChamberIndex: number | null;
+    workingPHp: number;
+    workingOHp: number;
+    stolenForPlayer: CardInstance | null;
+    stolenForOpponent: CardInstance | null;
+  }
 
   // Apply both simultaneously placed cards to the shared 6-chamber cylinder
   const applySimultaneousCardsToCylinder = useCallback(
@@ -269,141 +303,298 @@ export const App: React.FC = () => {
       pCard: CardInstance | null,
       oCard: CardInstance | null,
       slots: ChamberSlot[],
-      chamberIdx: number
+      pHp: number,
+      oHp: number,
+      oMaxHp: number
     ): {
       slots: ChamberSlot[];
-      playerDeflected: boolean;
-      opponentDeflected: boolean;
-      peekedInfo: string | null;
+      mods: TurnModifiers;
       actionSummary: string;
     } => {
-      let updated = slots.map((s) => ({ ...s }));
-      let playerDeflected = false;
-      let opponentDeflected = false;
-      let peekedInfo: string | null = null;
+      const updated = slots.map((s) => ({ ...s }));
       const summaries: string[] = [];
 
-      const entries: { actor: 'YOU' | 'ENEMY'; card: CardInstance | null }[] = [
-        { actor: 'YOU', card: pCard },
-        { actor: 'ENEMY', card: oCard },
+      const mods: TurnModifiers = {
+        playerShield: 0,
+        opponentShield: 0,
+        bonusLiveDmg: 0,
+        playerBonusDrawNext: 0,
+        opponentBonusDrawNext: 0,
+        silverBulletCaster: { player: false, opponent: false },
+        fieldPatchCaster: { player: false, opponent: false },
+        riggedBy: { player: false, opponent: false },
+        forcedAim: null,
+        lock5050: false,
+        misfireActive: { player: false, opponent: false },
+        ricochetActive: { player: false, opponent: false },
+        hairTriggerActive: false,
+        rewindActive: { player: false, opponent: false },
+        guaranteedChamberIndex: null,
+        workingPHp: pHp,
+        workingOHp: oHp,
+        stolenForPlayer: null,
+        stolenForOpponent: null,
+      };
+
+      const loadShellIntoDrum = (shellCard: CardInstance): number | null => {
+        const unspent = updated.filter((s) => !s.spent).map((s) => s.index);
+        if (unspent.length === 0) return null;
+        const blankSlots = unspent.filter((idx) => updated[idx].card === null);
+        const nonRedSlots = unspent.filter((idx) => !isLiveChamberCard(updated[idx].card));
+        const pool = blankSlots.length > 0 ? blankSlots : nonRedSlots.length > 0 ? nonRedSlots : unspent;
+        const targetIdx = pool[Math.floor(Math.random() * pool.length)];
+        updated[targetIdx] = {
+          ...updated[targetIdx],
+          card: shellCard,
+          spent: false,
+          revealed: false,
+        };
+        return targetIdx;
+      };
+
+      const removeRandomLive = (): boolean => {
+        const liveIndices = updated
+          .filter((s) => !s.spent && isLiveChamberCard(s.card))
+          .map((s) => s.index);
+        if (liveIndices.length === 0) return false;
+        const targetIdx = liveIndices[Math.floor(Math.random() * liveIndices.length)];
+        updated[targetIdx] = {
+          ...updated[targetIdx],
+          card: null,
+          spent: false,
+          revealed: false,
+        };
+        return true;
+      };
+
+      // Step 1: Handle Sleight of Hand & Jammer counters
+      let activePlayerCard: CardInstance | null = pCard;
+      let activeOpponentCard: CardInstance | null = oCard;
+
+      if (
+        pCard?.def.effectType === 'sleight_of_hand' &&
+        oCard &&
+        oCard.def.effectType !== 'sleight_of_hand'
+      ) {
+        mods.stolenForPlayer = createCardInstance(oCard.def.id);
+        activePlayerCard = oCard;
+        activeOpponentCard = null;
+        summaries.push(`YOU: SLEIGHT OF HAND (Stole ${oCard.def.name}!)`);
+      } else if (
+        oCard?.def.effectType === 'sleight_of_hand' &&
+        pCard &&
+        pCard.def.effectType !== 'sleight_of_hand'
+      ) {
+        mods.stolenForOpponent = createCardInstance(pCard.def.id);
+        activeOpponentCard = pCard;
+        activePlayerCard = null;
+        summaries.push(`ENEMY: SLEIGHT OF HAND (Stole ${pCard.def.name}!)`);
+      }
+
+      if (
+        activePlayerCard?.def.effectType === 'jammer' &&
+        activeOpponentCard?.def.color === 'red'
+      ) {
+        summaries.push(`YOU: JAMMER (Cancelled ${activeOpponentCard.def.name} +1 Live!)`);
+        activeOpponentCard = null;
+        loadShellIntoDrum(createCardInstance('red_crimsonslug'));
+        activePlayerCard = null;
+      } else if (
+        activeOpponentCard?.def.effectType === 'jammer' &&
+        activePlayerCard?.def.color === 'red'
+      ) {
+        summaries.push(`ENEMY: JAMMER (Cancelled ${activePlayerCard.def.name} +1 Live!)`);
+        activePlayerCard = null;
+        loadShellIntoDrum(createCardInstance('red_crimsonslug'));
+        activeOpponentCard = null;
+      }
+
+      const entries: { actor: 'YOU' | 'ENEMY'; side: ActorSide; card: CardInstance | null }[] = [
+        { actor: 'YOU', side: 'player', card: activePlayerCard },
+        { actor: 'ENEMY', side: 'opponent', card: activeOpponentCard },
       ];
 
-      for (const { actor, card } of entries) {
+      for (const { actor, side, card } of entries) {
         if (!card) {
-          summaries.push(`${actor}: PASS`);
+          if (
+            !(side === 'player' && pCard?.def.effectType === 'sleight_of_hand') &&
+            !(side === 'opponent' && oCard?.def.effectType === 'sleight_of_hand') &&
+            !(side === 'player' && pCard?.def.effectType === 'jammer') &&
+            !(side === 'opponent' && oCard?.def.effectType === 'jammer')
+          ) {
+            summaries.push(`${actor}: PASS`);
+          }
           continue;
         }
 
-        const unspentIndices = updated
-          .map((s, idx) => (!s.spent && idx >= chamberIdx ? idx : -1))
-          .filter((idx) => idx !== -1);
-
         switch (card.def.effectType) {
           case 'load_live': {
-            const emptyIdx = unspentIndices.find((idx) => updated[idx].card === null);
-            const nonRedIndices = unspentIndices.filter(
-              (idx) => updated[idx].card?.def.color !== 'red'
-            );
-            const targetIdx =
-              emptyIdx ??
-              (nonRedIndices.length > 0
-                ? nonRedIndices[Math.floor(Math.random() * nonRedIndices.length)]
-                : undefined);
-            if (targetIdx !== undefined) {
-              updated[targetIdx] = {
-                ...updated[targetIdx],
-                card,
-                spent: false,
-                revealed: false,
-              };
-              soundEngine.playShellClink(0.95);
-              summaries.push(`${actor}: LOAD LIVE (+1 Live)`);
-            } else {
-              summaries.push(`${actor}: LOAD LIVE (Drum Full)`);
-            }
+            const idx = loadShellIntoDrum(card);
+            soundEngine.playShellClink(0.95);
+            summaries.push(idx !== null ? `${actor}: LOAD LIVE (+1 Live)` : `${actor}: LOAD LIVE (Drum Full)`);
             break;
           }
-
-          case 'load_heavy': {
-            const emptyIdx = unspentIndices.find((idx) => updated[idx].card === null);
-            const nonHeavyIndices = unspentIndices.filter(
-              (idx) => updated[idx].card?.def.id !== 'red_hollowpoint'
-            );
-            const targetIdx =
-              emptyIdx ??
-              (nonHeavyIndices.length > 0
-                ? nonHeavyIndices[Math.floor(Math.random() * nonHeavyIndices.length)]
-                : undefined);
-            if (targetIdx !== undefined) {
-              updated[targetIdx] = {
-                ...updated[targetIdx],
-                card,
-                spent: false,
-                revealed: false,
-              };
-              soundEngine.playShellClink(0.85);
-              summaries.push(`${actor}: HEAVY SLUG (+2 DMG Shell)`);
-            } else {
-              summaries.push(`${actor}: HEAVY SLUG (Drum Full)`);
-            }
+          case 'brace': {
+            if (side === 'player') mods.playerShield += 1;
+            else mods.opponentShield += 1;
+            soundEngine.playShellClink(1.1);
+            summaries.push(`${actor}: BRACE (+1 Shield)`);
             break;
           }
-
-          case 'strip_live': {
-            const redIndices = unspentIndices.filter(
-              (idx) => updated[idx].card?.def.color === 'red'
-            );
-            if (redIndices.length > 0) {
-              const targetIdx =
-                redIndices[Math.floor(Math.random() * redIndices.length)];
-              updated[targetIdx] = {
-                ...updated[targetIdx],
-                card: null,
-                spent: false,
-                revealed: false,
-              };
-              soundEngine.playShellClink(1.25);
-              summaries.push(`${actor}: STRIP SHELL (-1 Live)`);
-            } else {
-              summaries.push(`${actor}: STRIP SHELL (No Live)`);
-            }
+          case 'dump_shell': {
+            const removed = removeRandomLive();
+            soundEngine.playShellClink(1.25);
+            summaries.push(removed ? `${actor}: DUMP SHELL (-1 Live)` : `${actor}: DUMP SHELL (No Live)`);
             break;
           }
-
-          case 'spin_drum': {
-            const unspentCards = updated.slice(chamberIdx).map((s) => s.card);
-            const shuffled = shuffleArray(unspentCards);
-            updated = updated.map((s, idx) =>
-              idx >= chamberIdx
-                ? { ...s, card: shuffled[idx - chamberIdx], revealed: false }
-                : s
-            );
-            peekedInfo = null;
+          case 'quick_draw': {
+            if (side === 'player') mods.playerBonusDrawNext += 1;
+            else mods.opponentBonusDrawNext += 1;
+            soundEngine.playCardSlide();
+            summaries.push(`${actor}: QUICK DRAW (+1 Card Next)`);
+            break;
+          }
+          case 'double_tap': {
+            loadShellIntoDrum(createCardInstance('red_crimsonslug'));
+            mods.bonusLiveDmg += 1;
+            soundEngine.playShellClink(0.9);
+            summaries.push(`${actor}: DOUBLE TAP (+1 Live, +1 DMG)`);
+            break;
+          }
+          case 'rigged_spin': {
+            mods.riggedBy[side] = true;
             soundEngine.playCylinderSpin();
-            summaries.push(`${actor}: SPIN DRUM (Shuffled)`);
+            summaries.push(`${actor}: RIGGED SPIN (75% Odds)`);
             break;
           }
-
-          case 'peek_next': {
-            if (actor === 'YOU') {
-              const peekIdx = chamberIdx + 1 < 6 ? chamberIdx + 1 : chamberIdx;
-              const slot = updated[peekIdx];
-              const isLive = slot?.card?.def.color === 'red';
-              const dmg = slot?.card?.def.id === 'red_hollowpoint' ? 2 : 1;
-              peekedInfo = isLive
-                ? `PEEK CHAMBER #${peekIdx + 1}: LIVE (${dmg} DMG)!`
-                : `PEEK CHAMBER #${peekIdx + 1}: BLANK (SAFE)`;
+          case 'field_patch': {
+            const removed = removeRandomLive();
+            mods.fieldPatchCaster[side] = true;
+            soundEngine.playShellClink(1.2);
+            summaries.push(
+              removed
+                ? `${actor}: FIELD PATCH (-1 Live, Heal on Blank)`
+                : `${actor}: FIELD PATCH (Heal on Blank)`
+            );
+            break;
+          }
+          case 'concussion_round': {
+            const idx = loadShellIntoDrum(card);
+            soundEngine.playShellClink(0.85);
+            summaries.push(
+              idx !== null ? `${actor}: CONCUSSION (+1 Shell)` : `${actor}: CONCUSSION (Drum Full)`
+            );
+            break;
+          }
+          case 'twin_load': {
+            loadShellIntoDrum(createCardInstance('red_crimsonslug'));
+            loadShellIntoDrum(createCardInstance('red_crimsonslug'));
+            soundEngine.playShellClink(0.85);
+            summaries.push(`${actor}: TWIN LOAD (+2 Live)`);
+            break;
+          }
+          case 'misfire': {
+            mods.misfireActive[side] = true;
+            soundEngine.playCardSlide();
+            summaries.push(`${actor}: MISFIRE (Safe from Live)`);
+            break;
+          }
+          case 'hair_trigger': {
+            mods.hairTriggerActive = true;
+            soundEngine.playShellClink(1.15);
+            summaries.push(`${actor}: HAIR TRIGGER (2nd Pull on Blank)`);
+            break;
+          }
+          case 'jammer': {
+            summaries.push(`${actor}: JAMMER (No Red Card)`);
+            break;
+          }
+          case 'blood_pact': {
+            if (side === 'player' && mods.workingPHp > 1) {
+              mods.workingPHp -= 1;
+            } else if (side === 'opponent' && mods.workingOHp > 1) {
+              mods.workingOHp -= 1;
+            }
+            const idx = loadShellIntoDrum(card);
+            if (idx !== null) mods.guaranteedChamberIndex = idx;
+            soundEngine.playShellClink(0.75);
+            summaries.push(`${actor}: BLOOD PACT (-1 HP · 2 DMG Pierce!)`);
+            break;
+          }
+          case 'ricochet': {
+            mods.ricochetActive[side] = true;
+            soundEngine.playShellClink(1.1);
+            summaries.push(`${actor}: RICOCHET (Redirect Live)`);
+            break;
+          }
+          case 'bandolier': {
+            if (side === 'player') {
+              mods.playerShield += 1;
+              mods.playerBonusDrawNext += 1;
+            } else {
+              mods.opponentShield += 1;
+              mods.opponentBonusDrawNext += 1;
+            }
+            soundEngine.playShellClink(1.1);
+            summaries.push(`${actor}: BANDOLIER (+1 Shield, +1 Draw)`);
+            break;
+          }
+          case 'sleight_of_hand': {
+            summaries.push(`${actor}: SLEIGHT OF HAND (Nothing to Steal)`);
+            break;
+          }
+          case 'adrenaline_shot': {
+            const curHp = side === 'player' ? mods.workingPHp : mods.workingOHp;
+            const maxHp = side === 'player' ? playerMaxHp : oMaxHp;
+            const healAmt = curHp === 1 ? 2 : 1;
+            const nextHp = Math.min(maxHp, curHp + healAmt);
+            if (side === 'player') mods.workingPHp = nextHp;
+            else mods.workingOHp = nextHp;
+            if (curHp === 1) {
+              mods.forcedAim = side === 'player' ? 'opponent' : 'player';
+              summaries.push(`${actor}: ADRENALINE (+2 HP & AIM!)`);
+            } else {
+              summaries.push(`${actor}: ADRENALINE (+1 HP)`);
             }
             soundEngine.playCardSlide();
-            summaries.push(`${actor}: PEEK CHAMBER`);
             break;
           }
-
-          case 'deflect': {
-            if (actor === 'YOU') playerDeflected = true;
-            else opponentDeflected = true;
-            soundEngine.playShellClink(1.1);
-            summaries.push(`${actor}: DEFLECT (Protected!)`);
+          case 'russian_roulette': {
+            for (let i = 0; i < updated.length; i++) {
+              if (!updated[i].spent && updated[i].card === null) {
+                updated[i] = {
+                  ...updated[i],
+                  card: createCardInstance('red_crimsonslug'),
+                  revealed: false,
+                };
+              }
+            }
+            mods.lock5050 = true;
+            soundEngine.playCylinderSpin();
+            summaries.push(`${actor}: RUSSIAN ROULETTE (ALL LIVE · 50/50!)`);
+            break;
+          }
+          case 'golden_gun': {
+            const idx = loadShellIntoDrum(card);
+            if (idx !== null) mods.guaranteedChamberIndex = idx;
+            mods.forcedAim = side === 'player' ? 'opponent' : 'player';
+            soundEngine.playShellClink(0.8);
+            summaries.push(`${actor}: GOLDEN GUN (2 DMG at Foe!)`);
+            break;
+          }
+          case 'silver_bullet': {
+            const idx = loadShellIntoDrum(card);
+            mods.silverBulletCaster[side] = true;
+            soundEngine.playShellClink(0.85);
+            summaries.push(
+              idx !== null ? `${actor}: SILVER BULLET (+3 DMG Shell)` : `${actor}: SILVER BULLET (Drum Full)`
+            );
+            break;
+          }
+          case 'rewind_cylinder': {
+            mods.rewindActive[side] = true;
+            soundEngine.playCylinderSpin();
+            summaries.push(`${actor}: REWIND CYLINDER (Cheat Death)`);
             break;
           }
         }
@@ -411,13 +602,11 @@ export const App: React.FC = () => {
 
       return {
         slots: updated,
-        playerDeflected,
-        opponentDeflected,
-        peekedInfo,
+        mods,
         actionSummary: summaries.join('  ·  '),
       };
     },
-    []
+    [playerMaxHp]
   );
 
   // Advance from TURN_RESULT when player clicks CONTINUE
@@ -426,12 +615,13 @@ export const App: React.FC = () => {
     const {
       pCard,
       oCard,
-      chamberIdx,
       workingPHand,
       workingOHand,
       workingPHp,
       workingOHp,
       currentRound,
+      remainingUnspent,
+      drumReset,
     } = pendingContinueRef.current;
     pendingContinueRef.current = null;
 
@@ -456,122 +646,183 @@ export const App: React.FC = () => {
       return;
     }
 
-    const nextIdx = chamberIdx + 1;
-
-    if (nextIdx >= 6) {
+    if (drumReset || remainingUnspent <= 0) {
       setPhase('RELOAD_ROUND');
-      setStatusBanner('ALL 6 CHAMBERS SPENT — RELOADING CYLINDER');
+      setStatusBanner(
+        drumReset ? 'REWIND — RELOADING FRESH DRUM' : 'ALL 6 CHAMBERS SPENT — RELOADING DRUM'
+      );
       setSubBanner('Replenishing hands & loading fresh shells...');
       schedule(() => {
         beginNewRound(currentRound + 1, workingPHand, workingOHand);
-      }, 1600);
+      }, 1500);
       return;
     }
 
+    const pBonus = playerBonusDrawRef.current;
+    const oBonus = opponentBonusDrawRef.current;
+    playerBonusDrawRef.current = 0;
+    opponentBonusDrawRef.current = 0;
+
     let nextPHand = [...workingPHand];
     let nextOHand = [...workingOHand];
-    if (nextPHand.length < 4) {
-      const needed = nextPHand.length === 0 ? 2 : 1;
-      nextPHand = [...nextPHand, ...drawFromSharedDeck(needed)];
-      setPlayerHand(nextPHand);
+    const basePDraw = nextPHand.length === 0 ? 2 : nextPHand.length < 4 ? 1 : 0;
+    const totalPDraw = Math.min(5 - nextPHand.length, basePDraw + pBonus);
+    if (totalPDraw > 0) {
+      nextPHand = [...nextPHand, ...drawFromSharedDeck(totalPDraw)];
     }
-    if (nextOHand.length < 4) {
-      const needed = nextOHand.length === 0 ? 2 : 1;
-      nextOHand = [...nextOHand, ...drawFromSharedDeck(needed)];
-      setOpponentHand(nextOHand);
-    }
+    setPlayerHand(nextPHand);
 
-    setCurrentChamberIdx(nextIdx);
+    const baseODraw = nextOHand.length === 0 ? 2 : nextOHand.length < 4 ? 1 : 0;
+    const totalODraw = Math.min(5 - nextOHand.length, baseODraw + oBonus);
+    if (totalODraw > 0) {
+      nextOHand = [...nextOHand, ...drawFromSharedDeck(totalODraw)];
+    }
+    setOpponentHand(nextOHand);
+
     setTurnNumber((t) => t + 1);
     setStats((s) => ({ ...s, turnsPlayed: s.turnsPlayed + 1 }));
     setSelectedCard(null);
     setPhase('PLAYER_SELECT');
     setStatusBanner('50/50 BET — CHOOSE YOUR CARD');
     setSubBanner(
-      `Chamber #${nextIdx + 1}/6 ready. Pick a card (or pass) & ring the Bell!`
+      `${remainingUnspent}/6 shells left in drum. Pick a card (or pass) & ring the Bell!`
     );
   }, [phase, opponent.name, syncDeckCounts, beginNewRound, drawFromSharedDeck]);
 
-  // Full Simultaneous Turn Resolution:
-  // 1. REVEAL_CARDS (lift cards & show effects)
-  // 2. PICK_TARGET (50/50 revolver spin on table + Deflect check)
-  // 3. RESOLVE_CHAMBER (lift & aim gun, slowly rotate drum into barrel)
-  // 4. FIRE -> TURN_RESULT (pause until CONTINUE)
+  // Full Simultaneous Turn Resolution with Random-Spin Chamber Selection
   const executeSimultaneousTurn = useCallback(
     (params: {
       pCard: CardInstance | null;
       oCard: CardInstance | null;
-      playerDeflected: boolean;
-      opponentDeflected: boolean;
+      mods: TurnModifiers;
       actionSummary: string;
-      chamberIdx: number;
       slots: ChamberSlot[];
       pHand: CardInstance[];
       oHand: CardInstance[];
-      pHp: number;
-      oHp: number;
+      pMaxHp: number;
+      oMaxHp: number;
       currentRound: number;
     }) => {
       const {
         pCard,
         oCard,
-        playerDeflected,
-        opponentDeflected,
+        mods,
         actionSummary,
-        chamberIdx,
         slots,
         pHand,
         oHand,
-        pHp,
-        oHp,
+        pMaxHp,
+        oMaxHp,
         currentRound,
       } = params;
 
-      // 1. REVEAL CARDS (cards slide to center & lift toward player)
+      // Apply immediate HP changes (Blood Pact / Adrenaline)
+      let workingPHp = mods.workingPHp;
+      let workingOHp = mods.workingOHp;
+      setPlayerHp(workingPHp);
+      setOpponentHp(workingOHp);
+
+      // Add stolen cards (Sleight of Hand) to hand
+      const workingPHand = mods.stolenForPlayer
+        ? [...pHand.slice(pHand.length >= 5 ? 1 : 0), mods.stolenForPlayer]
+        : [...pHand];
+      const workingOHand = mods.stolenForOpponent
+        ? [...oHand.slice(oHand.length >= 5 ? 1 : 0), mods.stolenForOpponent]
+        : [...oHand];
+      if (mods.stolenForPlayer) setPlayerHand(workingPHand);
+      if (mods.stolenForOpponent) setOpponentHand(workingOHand);
+
+      // 1. REVEAL CARDS
       setPhase('REVEAL_CARDS');
       soundEngine.playCardSlide();
       setStatusBanner('CARDS REVEALED!');
       setSubBanner(actionSummary);
 
       schedule(() => {
-        // 2. PICK TARGET (50/50 roulette spin on the table)
-        const initialRoll: ActorSide = Math.random() < 0.5 ? 'opponent' : 'player';
-        let target: ActorSide = initialRoll;
-        let targetSub =
-          initialRoll === 'player'
-            ? '50/50 spin landed on YOU!'
-            : `50/50 spin landed on ${opponent.name}!`;
+        // 2. PICK TARGET (50/50 or rigged/forced spin)
+        let opponentChance = 0.5;
+        let spinLabel = '50/50 ROULETTE SPIN...';
+        let targetSub = '';
 
-        if (initialRoll === 'player' && playerDeflected && !opponentDeflected) {
-          target = 'opponent';
-          targetSub = `Spin landed on YOU — DEFLECTED to ${opponent.name}!`;
-        } else if (
-          initialRoll === 'opponent' &&
-          opponentDeflected &&
-          !playerDeflected
-        ) {
-          target = 'player';
-          targetSub = `Spin landed on ${opponent.name} — DEFLECTED to YOU!`;
-        } else if (playerDeflected && opponentDeflected) {
-          targetSub = `Both played DEFLECT (cancelled) — Aimed at ${
-            target === 'player' ? 'YOU' : opponent.name
-          }!`;
+        if (mods.lock5050) {
+          opponentChance = 0.5;
+          spinLabel = 'RUSSIAN ROULETTE — LOCKED 50/50!';
+        } else if (mods.forcedAim) {
+          opponentChance = mods.forcedAim === 'opponent' ? 1 : 0;
+          spinLabel = 'FORCED AIM!';
+        } else if (mods.riggedBy.player && !mods.riggedBy.opponent) {
+          opponentChance = 0.75;
+          spinLabel = 'RIGGED SPIN (75% FOE / 25% YOU)...';
+        } else if (mods.riggedBy.opponent && !mods.riggedBy.player) {
+          opponentChance = 0.25;
+          spinLabel = 'ENEMY RIGGED SPIN (25% FOE / 75% YOU)...';
         }
+
+        const initialRoll: ActorSide =
+          Math.random() < opponentChance ? 'opponent' : 'player';
+        let target: ActorSide = initialRoll;
+        targetSub =
+          initialRoll === 'player'
+            ? 'Spin landed on YOU!'
+            : `Spin landed on ${opponent.name}!`;
 
         setTurnTarget(target);
         setPhase('PICK_TARGET');
         soundEngine.playCylinderSpin();
-        setStatusBanner('50/50 ROULETTE SPIN...');
+        setStatusBanner(spinLabel);
         setSubBanner(targetSub);
 
         schedule(() => {
-          // 3. RESOLVE CHAMBER (gun lifts & aims, drum slowly rotates into barrel)
-          const workingSlots = slots.map((s, idx) =>
-            idx === chamberIdx ? { ...s, revealed: true } : s
-          );
-          const chamberCard = workingSlots[chamberIdx]?.card ?? null;
+          // 3. SPIN DRUM & PICK RANDOM UNSPENT CHAMBER
+          const workingSlots = slots.map((s) => ({ ...s }));
+          const unspentIndices = workingSlots
+            .filter((s) => !s.spent)
+            .map((s) => s.index);
+
+          const chosenIdx =
+            mods.guaranteedChamberIndex !== null &&
+            !workingSlots[mods.guaranteedChamberIndex]?.spent
+              ? mods.guaranteedChamberIndex
+              : unspentIndices[Math.floor(Math.random() * unspentIndices.length)] ?? 0;
+
+          let chamberCard = workingSlots[chosenIdx]?.card ?? null;
+
+          // Check Ricochet (redirects Live non-piercing shot if target has Ricochet)
+          const previewFire = chamberCard
+            ? chamberCard.def.onChamberFire({
+                target,
+                chamberIndex: chosenIdx,
+                card: chamberCard,
+              })
+            : { damageToTarget: 0, logMessage: '' };
+
+          if (
+            !mods.lock5050 &&
+            previewFire.damageToTarget > 0 &&
+            !previewFire.piercing
+          ) {
+            if (
+              target === 'player' &&
+              mods.ricochetActive.player &&
+              !mods.ricochetActive.opponent
+            ) {
+              target = 'opponent';
+              setTurnTarget('opponent');
+              targetSub = `RICOCHET! Redirected to ${opponent.name}!`;
+            } else if (
+              target === 'opponent' &&
+              mods.ricochetActive.opponent &&
+              !mods.ricochetActive.player
+            ) {
+              target = 'player';
+              setTurnTarget('player');
+              targetSub = 'ENEMY RICOCHET! Redirected to YOU!';
+            }
+          }
+
+          workingSlots[chosenIdx] = { ...workingSlots[chosenIdx], revealed: true };
           setCylinderSlots(workingSlots);
-          setCurrentChamberIdx(chamberIdx);
+          setCurrentChamberIdx(chosenIdx);
           setPhase('RESOLVE_CHAMBER');
           soundEngine.playShellClink(1.1);
 
@@ -579,87 +830,222 @@ export const App: React.FC = () => {
           const remainingStats = countChamberCardTypes(workingSlots);
           const remBlank =
             remainingStats.blue + remainingStats.purple + remainingStats.empty;
-          setStatusBanner(`AIMING CHAMBER #${chamberIdx + 1}/6 → ${targetName}`);
+          setStatusBanner(`SPINNING DRUM → ${targetName}`);
           setSubBanner(
-            `Drum aligning... (${remainingStats.red} Live · ${remBlank} Blank remaining)`
+            `${targetSub} (${remainingStats.red} Live · ${remBlank} Blank in drum)`
           );
 
           schedule(() => {
-            // 4. FIRE SHOT
-            setPhase(target === 'opponent' ? 'FIRE_OPPONENT' : 'FIRE_PLAYER');
+            // 4. FIRE SHOT (helper supports Hair Trigger 2nd pull on Blank)
+            let playerTookDmg = 0;
+            let opponentTookDmg = 0;
+            let drumReset = false;
 
-            workingSlots[chamberIdx] = {
-              ...workingSlots[chamberIdx],
-              spent: true,
-              revealed: true,
+            const resolveOneChamber = (slotIdx: number, shotTarget: ActorSide) => {
+              const cardInSlot = workingSlots[slotIdx]?.card ?? null;
+              workingSlots[slotIdx] = {
+                ...workingSlots[slotIdx],
+                spent: true,
+                revealed: true,
+              };
+              if (cardInSlot) {
+                discardPileRef.current.push(cardInSlot);
+                syncDeckCounts();
+              }
+
+              let fireRes = cardInSlot
+                ? cardInSlot.def.onChamberFire({
+                    target: shotTarget,
+                    chamberIndex: slotIdx,
+                    card: cardInSlot,
+                  })
+                : {
+                    damageToTarget: 0,
+                    logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+                  };
+
+              let note = '';
+
+              // Check Misfire
+              if (
+                fireRes.damageToTarget > 0 &&
+                mods.misfireActive[shotTarget]
+              ) {
+                fireRes = {
+                  damageToTarget: 0,
+                  logMessage: 'MISFIRE! LIVE SHELL TURNED TO BLANK!',
+                };
+                workingSlots[slotIdx] = { ...workingSlots[slotIdx], card: null };
+                note = 'MISFIRED!';
+              }
+
+              // Bonus Live DMG (Double Tap)
+              if (fireRes.damageToTarget > 0 && mods.bonusLiveDmg > 0) {
+                fireRes = {
+                  ...fireRes,
+                  damageToTarget: fireRes.damageToTarget + mods.bonusLiveDmg,
+                };
+                note = `+${mods.bonusLiveDmg} DOUBLE TAP`;
+              }
+
+              // Shield absorption (unless Piercing)
+              let finalDmg = fireRes.damageToTarget;
+              if (finalDmg > 0 && !fireRes.piercing) {
+                const shield =
+                  shotTarget === 'player' ? mods.playerShield : mods.opponentShield;
+                if (shield > 0) {
+                  const blocked = Math.min(shield, finalDmg);
+                  finalDmg -= blocked;
+                  if (shotTarget === 'player') mods.playerShield -= blocked;
+                  else mods.opponentShield -= blocked;
+                  note = note ? `${note} · SHIELD -${blocked}` : `SHIELD BLOCKED ${blocked}`;
+                }
+              } else if (finalDmg > 0 && fireRes.piercing) {
+                note = 'PIERCING!';
+              }
+
+              // Apply Damage & Discard-on-Hit (Concussion Round)
+              if (finalDmg > 0) {
+                soundEngine.playGunshotBlast(false);
+                setShakeIntensity(1.15);
+                setGunMuzzleFlash(true);
+
+                if (shotTarget === 'opponent') {
+                  workingOHp = Math.max(0, workingOHp - finalDmg);
+                  opponentTookDmg += finalDmg;
+                  setOpponentHp(workingOHp);
+                  setOpponentDamagedAnim(true);
+                  setStats((s) => ({
+                    ...s,
+                    shotsFired: s.shotsFired + 1,
+                    damageDealt: s.damageDealt + finalDmg,
+                  }));
+                  if (fireRes.discardOnHit && workingOHand.length > 0) {
+                    const dropIdx = Math.floor(Math.random() * workingOHand.length);
+                    const dropped = workingOHand.splice(dropIdx, 1)[0];
+                    discardPileRef.current.push(dropped);
+                    setOpponentHand([...workingOHand]);
+                    note = `DISCARDED ${dropped.def.name}`;
+                  }
+                } else {
+                  workingPHp = Math.max(0, workingPHp - finalDmg);
+                  playerTookDmg += finalDmg;
+                  setPlayerHp(workingPHp);
+                  setPlayerDamagedFlash(true);
+                  if (fireRes.discardOnHit && workingPHand.length > 0) {
+                    const dropIdx = Math.floor(Math.random() * workingPHand.length);
+                    const dropped = workingPHand.splice(dropIdx, 1)[0];
+                    discardPileRef.current.push(dropped);
+                    setPlayerHand([...workingPHand]);
+                    note = `DISCARDED ${dropped.def.name}`;
+                  }
+                }
+              } else {
+                soundEngine.playDryFireClick();
+                setGunDryFire(true);
+                if (shotTarget === 'player') {
+                  setStats((s) => ({
+                    ...s,
+                    selfShotsSurvived: s.selfShotsSurvived + 1,
+                  }));
+                }
+                // Field Patch heal on Blank
+                if (mods.fieldPatchCaster.player) {
+                  workingPHp = Math.min(pMaxHp, workingPHp + 1);
+                  setPlayerHp(workingPHp);
+                  note = 'FIELD PATCH +1 HP';
+                }
+                if (mods.fieldPatchCaster.opponent) {
+                  workingOHp = Math.min(oMaxHp, workingOHp + 1);
+                  setOpponentHp(workingOHp);
+                }
+              }
+
+              // Rewind Cylinder (Cheat Death)
+              if (workingPHp <= 0 && mods.rewindActive.player) {
+                workingPHp = 1;
+                setPlayerHp(1);
+                drumReset = true;
+                note = 'REWIND SAVED YOU AT 1 HP!';
+              }
+              if (workingOHp <= 0 && mods.rewindActive.opponent) {
+                workingOHp = 1;
+                setOpponentHp(1);
+                drumReset = true;
+                note = 'ENEMY REWIND SAVED AT 1 HP!';
+              }
+
+              const wasBlank = fireRes.damageToTarget === 0 && !cardInSlot;
+              setLastFiredShot({
+                label: cardInSlot ? cardInSlot.def.name : 'BLANK SHELL',
+                cardId: cardInSlot ? cardInSlot.def.id : null,
+                color: cardInSlot ? cardInSlot.def.color : 'blank',
+                rarity: cardInSlot?.def.rarity,
+                damage: finalDmg,
+                target: shotTarget,
+                wasBlank: finalDmg === 0,
+                note: note || undefined,
+              });
+
+              return { finalDmg, wasBlank: fireRes.damageToTarget === 0, note, cardInSlot };
             };
-            if (chamberCard) {
-              discardPileRef.current.push(chamberCard);
-              syncDeckCounts();
+
+            setPhase(target === 'opponent' ? 'FIRE_OPPONENT' : 'FIRE_PLAYER');
+            const firstShot = resolveOneChamber(chosenIdx, target);
+
+            // Hair Trigger: if first shot was Blank and drum still has unspent slots, fire a 2nd random chamber!
+            let secondShotInfo = '';
+            if (firstShot.wasBlank && mods.hairTriggerActive && !drumReset) {
+              const remainingPool = workingSlots
+                .filter((s) => !s.spent)
+                .map((s) => s.index);
+              if (remainingPool.length > 0) {
+                const secondIdx =
+                  remainingPool[Math.floor(Math.random() * remainingPool.length)];
+                const secondShot = resolveOneChamber(secondIdx, target);
+                secondShotInfo = ` · HAIR TRIGGER 2ND PULL: ${
+                  secondShot.finalDmg > 0 ? `${secondShot.finalDmg} DMG!` : 'BLANK!'
+                }`;
+              }
             }
+
             setCylinderSlots([...workingSlots]);
 
-            setPeekedSlotInfo((prev) =>
-              prev && prev.includes(`#${chamberIdx + 1}:`) ? null : prev
-            );
+            // Bonus draws for next turn
+            playerBonusDrawRef.current += mods.playerBonusDrawNext;
+            opponentBonusDrawRef.current += mods.opponentBonusDrawNext;
+            if (mods.silverBulletCaster.player && playerTookDmg === 0) {
+              playerBonusDrawRef.current += 2;
+            }
+            if (mods.silverBulletCaster.opponent && opponentTookDmg === 0) {
+              opponentBonusDrawRef.current += 2;
+            }
 
-            const fireRes = chamberCard
-              ? chamberCard.def.onChamberFire({
-                  target,
-                  chamberIndex: chamberIdx,
-                  card: chamberCard,
-                })
-              : {
-                  damageToTarget: 0,
-                  logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
-                };
+            const totalDmgThisTurn =
+              target === 'opponent' ? opponentTookDmg : playerTookDmg;
 
-            let workingPHp = pHp;
-            let workingOHp = oHp;
-
-            if (fireRes.damageToTarget > 0) {
-              soundEngine.playGunshotBlast(false);
-              setShakeIntensity(1.15);
-              setGunMuzzleFlash(true);
-
-              if (target === 'opponent') {
-                workingOHp = Math.max(0, workingOHp - fireRes.damageToTarget);
-                setOpponentHp(workingOHp);
-                setOpponentDamagedAnim(true);
-                setStats((s) => ({
-                  ...s,
-                  shotsFired: s.shotsFired + 1,
-                  damageDealt: s.damageDealt + fireRes.damageToTarget,
-                }));
-                setOpponentSpeech(
-                  opponent.tauntDamaged[
-                    Math.floor(Math.random() * opponent.tauntDamaged.length)
-                  ]
-                );
-                setStatusBanner(
-                  `BANG! ${opponent.name} TAKES ${fireRes.damageToTarget} DMG!`
-                );
-              } else {
-                workingPHp = Math.max(0, workingPHp - fireRes.damageToTarget);
-                setPlayerHp(workingPHp);
-                setPlayerDamagedFlash(true);
-                setOpponentSpeech(
-                  opponent.tauntHitPlayer[
-                    Math.floor(Math.random() * opponent.tauntHitPlayer.length)
-                  ]
-                );
-                setStatusBanner(`BANG! YOU TAKE ${fireRes.damageToTarget} DMG!`);
-              }
+            if (totalDmgThisTurn > 0) {
+              setStatusBanner(
+                target === 'opponent'
+                  ? `BANG! ${opponent.name} TAKES ${totalDmgThisTurn} DMG!`
+                  : `BANG! YOU TAKE ${totalDmgThisTurn} DMG!`
+              );
+              setOpponentSpeech(
+                target === 'opponent'
+                  ? opponent.tauntDamaged[
+                      Math.floor(Math.random() * opponent.tauntDamaged.length)
+                    ]
+                  : opponent.tauntHitPlayer[
+                      Math.floor(Math.random() * opponent.tauntHitPlayer.length)
+                    ]
+              );
             } else {
-              soundEngine.playDryFireClick();
-              setGunDryFire(true);
-              setStatusBanner('CLICK! BLANK CHAMBER — SAFE!');
-              if (target === 'player') {
-                setStats((s) => ({
-                  ...s,
-                  selfShotsSurvived: s.selfShotsSurvived + 1,
-                }));
-              } else {
+              setStatusBanner(
+                firstShot.note
+                  ? `${firstShot.note}!`
+                  : 'CLICK! BLANK CHAMBER — SAFE!'
+              );
+              if (target === 'opponent') {
                 setOpponentSpeech(
                   opponent.tauntSelfSafe[
                     Math.floor(Math.random() * opponent.tauntSelfSafe.length)
@@ -668,18 +1054,20 @@ export const App: React.FC = () => {
               }
             }
 
+            const firedName = firstShot.cardInSlot
+              ? firstShot.cardInSlot.def.name
+              : 'BLANK SHELL';
             setSubBanner(
-              `Chamber #${chamberIdx + 1} fired at ${targetName}. Click CONTINUE when ready.`
+              `Fired ${firedName} at ${targetName}${secondShotInfo}. Click CONTINUE when ready.`
             );
             setLastTurnSummary(
-              `Last Turn: ${actionSummary} → Shot at ${targetName}: ${
-                fireRes.damageToTarget > 0
-                  ? `BANG! (-${fireRes.damageToTarget} HP)`
-                  : 'CLICK (Blank)'
-              }`
+              `Last Turn: ${actionSummary} → Fired ${firedName} at ${targetName}: ${
+                totalDmgThisTurn > 0 ? `BANG! (-${totalDmgThisTurn} HP)` : 'SAFE (0 DMG)'
+              }${secondShotInfo}`
             );
 
-            // Pause on TURN_RESULT until player clicks CONTINUE
+            const remainingUnspent = workingSlots.filter((s) => !s.spent).length;
+
             schedule(() => {
               setGunMuzzleFlash(false);
               setGunDryFire(false);
@@ -689,23 +1077,24 @@ export const App: React.FC = () => {
               pendingContinueRef.current = {
                 pCard,
                 oCard,
-                chamberIdx,
-                workingPHand: [...pHand],
-                workingOHand: [...oHand],
+                workingPHand: [...workingPHand],
+                workingOHand: [...workingOHand],
                 workingPHp,
                 workingOHp,
                 currentRound,
+                remainingUnspent,
+                drumReset,
               };
               setPhase('TURN_RESULT');
             }, 950);
-          }, 1600);
-        }, 1800);
-      }, 2000);
+          }, 1500);
+        }, 1600);
+      }, 1800);
     },
     [opponent, syncDeckCounts]
   );
 
-  // Card Click Handler: slides card onto LOCK IN SLOT
+  // Card Click Handler: slides card onto LOCK IN SLOT (disables Blood Pact at 1 HP)
   const handleSelectPlayerCard = useCallback(
     (card: CardInstance) => {
       if (phase === 'PRE_ROUND_LOAD') {
@@ -716,10 +1105,15 @@ export const App: React.FC = () => {
           return [...prev, card];
         });
       } else if (phase === 'PLAYER_SELECT') {
+        if (card.def.effectType === 'blood_pact' && playerHp <= 1) {
+          setStatusBanner('BLOOD PACT UNAVAILABLE');
+          setSubBanner('You need at least 2 HP to pay the 1 HP Blood Pact cost.');
+          return;
+        }
         setSelectedCard((prev) => (prev?.uid === card.uid ? null : card));
       }
     },
-    [phase]
+    [phase, playerHp]
   );
 
   // Draft Card Handler from "DRAFT CARDS" button
@@ -762,14 +1156,12 @@ export const App: React.FC = () => {
       pCard,
       oCard,
       cylinderSlots,
-      currentChamberIdx
+      playerHp,
+      opponentHp,
+      opponentMaxHp
     );
     setCylinderSlots(applied.slots);
-    if (pCard?.def.effectType === 'spin_drum' || oCard?.def.effectType === 'spin_drum') {
-      setPeekedSlotInfo(null);
-    } else if (applied.peekedInfo) {
-      setPeekedSlotInfo(applied.peekedInfo);
-    }
+    setPeekedSlotInfo(null);
 
     setOpponentSpeech(
       opponent.tauntLockIn[Math.floor(Math.random() * opponent.tauntLockIn.length)]
@@ -778,15 +1170,13 @@ export const App: React.FC = () => {
     executeSimultaneousTurn({
       pCard,
       oCard,
-      playerDeflected: applied.playerDeflected,
-      opponentDeflected: applied.opponentDeflected,
+      mods: applied.mods,
       actionSummary: applied.actionSummary,
-      chamberIdx: currentChamberIdx,
       slots: applied.slots,
       pHand: nextPHand,
       oHand: nextOHand,
-      pHp: playerHp,
-      oHp: opponentHp,
+      pMaxHp: playerMaxHp,
+      oMaxHp: opponentMaxHp,
       currentRound: roundNumber,
     });
   }, [
@@ -796,11 +1186,12 @@ export const App: React.FC = () => {
     cylinderSlots,
     opponentHand,
     opponentHp,
+    opponentMaxHp,
     applySimultaneousCardsToCylinder,
-    currentChamberIdx,
     opponent,
     executeSimultaneousTurn,
     playerHp,
+    playerMaxHp,
     roundNumber,
   ]);
 
@@ -891,6 +1282,7 @@ export const App: React.FC = () => {
         subBanner={subBanner}
         opponentSpeech={opponentSpeech}
         lastTurnSummary={lastTurnSummary}
+        lastFiredShot={lastFiredShot}
         peekedSlotInfo={peekedSlotInfo}
         playerHp={playerHp}
         playerMaxHp={playerMaxHp}

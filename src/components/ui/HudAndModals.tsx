@@ -18,6 +18,7 @@ import {
   CardId,
   CardInstance,
   ChamberSlot,
+  LastFiredShotInfo,
   OpponentDef,
   TurnPhase,
 } from '../../types/game';
@@ -25,7 +26,9 @@ import {
   ALL_CARD_IDS,
   CARD_DEFINITIONS,
   countChamberCardTypes,
+  isLiveChamberCard,
   LADDER_OPPONENTS,
+  RARITY_META,
 } from '../../data/cardsAndOpponents';
 import { CameraFocusMode } from '../three/TabletopScene';
 import { soundEngine } from '../../audio/soundEngine';
@@ -81,6 +84,7 @@ interface HudAndModalsProps {
   subBanner: string;
   opponentSpeech: string;
   lastTurnSummary: string | null;
+  lastFiredShot: LastFiredShotInfo | null;
   peekedSlotInfo: string | null;
   playerHp: number;
   playerMaxHp: number;
@@ -130,6 +134,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   subBanner,
   opponentSpeech,
   lastTurnSummary,
+  lastFiredShot,
   peekedSlotInfo,
   playerHp,
   playerMaxHp,
@@ -211,28 +216,62 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
             </button>
           </div>
 
-          {/* 6-Chamber Cylinder Progress Indicator */}
-          <div className="flex items-center gap-1" title="6-Chamber Cylinder Progress">
-            <span className="font-mono text-[10px] text-amber-200/60 mr-1">
-              CHAMBERS:
+          {/* 6-Chamber Drum Tracker + Last Fired Card Chip */}
+          <div className="flex flex-wrap items-center gap-1.5" title="6-Chamber Drum Progress">
+            <span className="font-mono text-[10px] text-amber-200/60">
+              DRUM:
             </span>
-            {cylinderSlots.map((slot, idx) => {
-              const isCurrent = idx === currentChamberIdx && !slot.spent;
-              return (
-                <span
-                  key={slot.index}
-                  className={`w-3.5 h-3.5 rounded-full flex items-center justify-center font-mono text-[9px] font-black border ${
-                    slot.spent
-                      ? 'bg-stone-900/80 border-stone-700 text-stone-600'
-                      : isCurrent
-                      ? 'bg-amber-400 border-amber-200 text-stone-950 scale-110 shadow-sm'
-                      : 'bg-stone-800/90 border-amber-700/60 text-amber-200/80'
-                  }`}
-                >
-                  {slot.spent ? '×' : idx + 1}
+            <div className="flex items-center gap-1">
+              {cylinderSlots.map((slot, idx) => {
+                const isSpent = slot.spent;
+                const wasLive = isSpent && isLiveChamberCard(slot.card);
+                const wasGold = isSpent && slot.card?.def.color === 'gold';
+                const slotTitle = isSpent
+                  ? slot.card
+                    ? `Fired: ${slot.card.def.name}`
+                    : 'Fired: Blank'
+                  : 'Unspent Chamber (?)';
+                return (
+                  <span
+                    key={slot.index}
+                    title={slotTitle}
+                    className={`w-4 h-4 rounded-full flex items-center justify-center font-mono text-[9px] font-black border ${
+                      isSpent
+                        ? wasGold
+                          ? 'bg-amber-950/90 border-amber-400 text-amber-300'
+                          : wasLive
+                          ? 'bg-rose-950/90 border-rose-500 text-rose-300'
+                          : 'bg-stone-900/80 border-stone-600 text-stone-400'
+                        : idx === currentChamberIdx &&
+                          (phase === 'RESOLVE_CHAMBER' ||
+                            phase === 'FIRE_PLAYER' ||
+                            phase === 'FIRE_OPPONENT')
+                        ? 'bg-amber-400 border-amber-200 text-stone-950 scale-110 shadow-sm'
+                        : 'bg-stone-800/90 border-amber-700/60 text-amber-200/80'
+                    }`}
+                  >
+                    {isSpent ? (wasGold ? '★' : wasLive ? '!' : '·') : '?'}
+                  </span>
+                );
+              })}
+            </div>
+
+            {lastFiredShot && (
+              <div
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-md border font-mono text-[10px] font-bold ${
+                  lastFiredShot.wasBlank
+                    ? 'bg-stone-900/90 border-stone-600 text-stone-300'
+                    : lastFiredShot.color === 'gold'
+                    ? 'bg-amber-950/90 border-amber-400 text-amber-200'
+                    : 'bg-rose-950/90 border-rose-500 text-rose-200'
+                }`}
+              >
+                <span>LAST: {lastFiredShot.label}</span>
+                <span className="opacity-80">
+                  {lastFiredShot.damage > 0 ? `(-${lastFiredShot.damage} HP)` : '(SAFE)'}
                 </span>
-              );
-            })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -270,6 +309,27 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
               </div>
             )}
           </div>
+
+          {lastFiredShot &&
+            (phase === 'FIRE_PLAYER' ||
+              phase === 'FIRE_OPPONENT' ||
+              phase === 'TURN_RESULT') && (
+              <div
+                className={`px-3.5 py-1 rounded-full border-2 font-mono text-xs font-black tracking-wide shadow-lg ${
+                  lastFiredShot.wasBlank
+                    ? 'bg-stone-900/95 border-stone-400 text-stone-100'
+                    : lastFiredShot.color === 'gold'
+                    ? 'bg-amber-950/95 border-amber-400 text-amber-200'
+                    : 'bg-rose-950/95 border-rose-400 text-rose-100'
+                }`}
+              >
+                FIRED: {lastFiredShot.label}{' '}
+                {lastFiredShot.damage > 0
+                  ? `— ${lastFiredShot.damage} DMG!`
+                  : '— BLANK (SAFE)'}
+                {lastFiredShot.note ? ` · ${lastFiredShot.note}` : ''}
+              </div>
+            )}
 
           {lastTurnSummary && phase === 'PLAYER_SELECT' && (
             <div className="px-3 py-0.5 rounded-full bg-stone-950/75 border border-amber-900/50 text-amber-200/80 font-mono text-[10px] sm:text-[11px] max-w-full truncate shadow">
@@ -346,9 +406,12 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
           {activeCardPreview && phase === 'PLAYER_SELECT' && (
             <div className="px-3.5 py-1 rounded-xl bg-stone-950/90 border border-amber-500/60 backdrop-blur-xs text-xs text-amber-100 shadow-lg max-w-md text-center">
               <span className="font-black text-amber-300">
-                {activeCardPreview.def.name}:
+                {activeCardPreview.def.name} ({RARITY_META[activeCardPreview.def.rarity].label}):
               </span>{' '}
               <span>{activeCardPreview.def.description}</span>
+              {activeCardPreview.def.effectType === 'blood_pact' && playerHp <= 1 && (
+                <span className="ml-1.5 font-black text-rose-400">[NEED 2+ HP]</span>
+              )}
             </div>
           )}
 
@@ -501,27 +564,35 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 max-h-[60vh] overflow-y-auto pr-1">
           {ALL_CARD_IDS.map((id) => {
             const c = CARD_DEFINITIONS[id];
+            const rMeta = RARITY_META[c.rarity];
             return (
               <div
                 key={id}
-                style={{ borderColor: c.borderColor }}
+                style={{ borderColor: rMeta.borderHex }}
                 className="p-3.5 rounded-xl bg-[#1a0f08]/90 border-2 flex flex-col justify-between gap-2"
               >
                 <div>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <span className="font-black text-sm text-[#fff5dc]">
                       {c.name}
                     </span>
-                    <span
-                      className="font-mono text-[10px] font-extrabold px-2 py-0.5 rounded bg-black/50"
-                      style={{ color: c.accentColor }}
-                    >
-                      {c.badgeText}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      <span
+                        className="font-mono text-[9px] font-black px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: rMeta.badgeBg, color: rMeta.textHex }}
+                      >
+                        {rMeta.label}
+                      </span>
+                      <span
+                        className="font-mono text-[10px] font-extrabold px-2 py-0.5 rounded bg-black/50"
+                        style={{ color: c.accentColor }}
+                      >
+                        {c.badgeText}
+                      </span>
+                    </div>
                   </div>
                   <p className="text-xs text-amber-100/90 mt-1.5">
-                    <strong className="text-amber-300">Chamber Effect:</strong>{' '}
-                    {c.chamberEffectText}
+                    {c.description}
                   </p>
                 </div>
 

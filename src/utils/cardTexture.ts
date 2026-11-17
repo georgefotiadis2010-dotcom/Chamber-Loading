@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { AimChoice, CardDef, CardId } from '../types/game';
-import { CARD_DEFINITIONS } from '../data/cardsAndOpponents';
+import { CARD_DEFINITIONS, RARITY_META } from '../data/cardsAndOpponents';
 
 const frontTextureCache = new Map<CardId, THREE.CanvasTexture>();
 let backTextureCache: THREE.CanvasTexture | null = null;
@@ -234,55 +234,165 @@ function drawCylinderIllustration(ctx: CanvasRenderingContext2D, cx: number, cy:
   ctx.restore();
 }
 
+function drawShieldIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: string) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.fillStyle = color;
+  ctx.strokeStyle = '#0f172a';
+  ctx.lineWidth = 7;
+  ctx.beginPath();
+  ctx.moveTo(0, -105);
+  ctx.lineTo(90, -70);
+  ctx.quadraticCurveTo(88, 45, 0, 110);
+  ctx.quadraticCurveTo(-88, 45, -90, -70);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.moveTo(0, -78);
+  ctx.lineTo(0, 80);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawCardIllustration(ctx: CanvasRenderingContext2D, card: CardDef, cx: number, cy: number) {
-  if (card.id === 'red_crimsonslug') {
-    // LOAD LIVE: Chunky silver & wood snub-nose revolver
-    drawRevolverIllustration(ctx, cx, cy);
-  } else if (card.id === 'blue_silverblank') {
-    // STRIP SHELL: Brass & Silver 3D shells
-    drawShellCylinder(ctx, cx - 22, cy - 34, 0.02, 0.88, true);
-    drawShellCylinder(ctx, cx + 68, cy - 22, 0.04, 0.86, false);
-    drawShellCylinder(ctx, cx - 64, cy + 44, -0.92, 0.85, false);
-    drawShellCylinder(ctx, cx + 28, cy + 48, 0.96, 0.88, true);
-  } else if (card.id === 'purple_recoilcurse') {
-    // SPIN DRUM: 3D fluted silver 6-chamber cylinder
-    drawCylinderIllustration(ctx, cx, cy);
-  } else if (card.id === 'red_hollowpoint') {
-    // HEAVY SLUG: Two gleaming brass live shells
-    drawShellCylinder(ctx, cx - 48, cy, -0.18, 1.05, true);
-    drawShellCylinder(ctx, cx + 48, cy + 6, 0.18, 1.05, true);
-  } else if (card.id === 'blue_hairtrigger') {
-    // PEEK CHAMBER: Cylinder + Silver shell
-    drawCylinderIllustration(ctx, cx - 12, cy);
-    drawShellCylinder(ctx, cx + 78, cy + 28, 0.45, 0.78, false);
-  } else {
-    // SWAP AIM: Opposing red & blue target arrows around center
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.lineWidth = 14;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-
-    // Top arrow pointing right (red)
-    ctx.strokeStyle = '#f87171';
-    ctx.beginPath();
-    ctx.moveTo(-90, -45);
-    ctx.lineTo(75, -45);
-    ctx.lineTo(35, -85);
-    ctx.moveTo(75, -45);
-    ctx.lineTo(35, -5);
-    ctx.stroke();
-
-    // Bottom arrow pointing left (sky)
-    ctx.strokeStyle = '#38bdf8';
-    ctx.beginPath();
-    ctx.moveTo(90, 45);
-    ctx.lineTo(-75, 45);
-    ctx.lineTo(-35, 5);
-    ctx.moveTo(-75, 45);
-    ctx.lineTo(-35, 85);
-    ctx.stroke();
-    ctx.restore();
+  switch (card.effectType) {
+    case 'load_live':
+      drawRevolverIllustration(ctx, cx, cy);
+      break;
+    case 'double_tap':
+    case 'twin_load':
+      drawShellCylinder(ctx, cx - 48, cy - 8, -0.18, 1.05, true);
+      drawShellCylinder(ctx, cx + 48, cy + 8, 0.18, 1.05, true);
+      break;
+    case 'concussion_round':
+      drawShellCylinder(ctx, cx - 35, cy, -0.22, 1.02, true);
+      ctx.save();
+      ctx.translate(cx + 55, cy - 10);
+      ctx.fillStyle = '#fb7185';
+      ctx.strokeStyle = '#1c120c';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(10, -75);
+      ctx.lineTo(-30, 5);
+      ctx.lineTo(5, 5);
+      ctx.lineTo(-15, 75);
+      ctx.lineTo(40, -15);
+      ctx.lineTo(5, -15);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      break;
+    case 'blood_pact':
+      drawShellCylinder(ctx, cx - 35, cy + 12, -0.15, 1.0, true);
+      ctx.save();
+      ctx.translate(cx + 55, cy - 15);
+      ctx.fillStyle = '#e11d48';
+      ctx.strokeStyle = '#1c120c';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(0, -70);
+      ctx.bezierCurveTo(48, -5, 48, 55, 0, 68);
+      ctx.bezierCurveTo(-48, 55, -48, -5, 0, -70);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      break;
+    case 'russian_roulette':
+      drawCylinderIllustration(ctx, cx, cy);
+      drawShellCylinder(ctx, cx - 72, cy + 45, -0.45, 0.72, true);
+      drawShellCylinder(ctx, cx + 78, cy - 45, 0.45, 0.72, true);
+      break;
+    case 'brace':
+      drawShieldIcon(ctx, cx, cy, '#38bdf8');
+      break;
+    case 'bandolier':
+      drawShieldIcon(ctx, cx - 32, cy, '#0284c7');
+      drawShellCylinder(ctx, cx + 65, cy + 12, 0.2, 0.82, false);
+      break;
+    case 'dump_shell':
+      drawShellCylinder(ctx, cx - 28, cy - 22, -0.25, 0.9, false);
+      drawShellCylinder(ctx, cx + 48, cy + 28, 0.75, 0.9, true);
+      break;
+    case 'quick_draw':
+    case 'adrenaline_shot':
+      drawShellCylinder(ctx, cx - 55, cy + 12, -0.35, 0.85, false);
+      ctx.save();
+      ctx.translate(cx + 35, cy - 10);
+      ctx.fillStyle = '#22d3ee';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 6;
+      drawRoundedRect(ctx, -20, -68, 40, 136, 12);
+      ctx.fill();
+      ctx.stroke();
+      drawRoundedRect(ctx, -68, -20, 136, 40, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      break;
+    case 'field_patch':
+      drawShellCylinder(ctx, cx - 45, cy + 10, -0.2, 0.85, false);
+      ctx.save();
+      ctx.translate(cx + 42, cy - 5);
+      ctx.fillStyle = '#4ade80';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 6;
+      drawRoundedRect(ctx, -18, -62, 36, 124, 10);
+      ctx.fill();
+      ctx.stroke();
+      drawRoundedRect(ctx, -62, -18, 124, 36, 10);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      break;
+    case 'golden_gun':
+      drawRevolverIllustration(ctx, cx, cy - 12);
+      drawShellCylinder(ctx, cx + 82, cy + 48, 0.3, 0.82, true);
+      break;
+    case 'silver_bullet':
+      drawShellCylinder(ctx, cx, cy, 0.12, 1.32, false);
+      break;
+    case 'rewind_cylinder':
+      drawCylinderIllustration(ctx, cx, cy);
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.strokeStyle = '#fde047';
+      ctx.lineWidth = 10;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(0, 0, 106, -Math.PI * 0.75, Math.PI * 0.65);
+      ctx.stroke();
+      ctx.restore();
+      break;
+    default:
+      // Purple tricks / counters / ricochet / rigged spin / jammer / sleight / misfire / hair trigger
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.lineWidth = 14;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = card.accentColor;
+      ctx.beginPath();
+      ctx.moveTo(-90, -45);
+      ctx.lineTo(75, -45);
+      ctx.lineTo(35, -85);
+      ctx.moveTo(75, -45);
+      ctx.lineTo(35, -5);
+      ctx.stroke();
+      ctx.strokeStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.moveTo(90, 45);
+      ctx.lineTo(-75, 45);
+      ctx.lineTo(-35, 5);
+      ctx.moveTo(-75, 45);
+      ctx.lineTo(-35, 85);
+      ctx.stroke();
+      ctx.restore();
+      break;
   }
 }
 
@@ -291,12 +401,13 @@ export function getCardFrontTexture(cardId: CardId): THREE.CanvasTexture {
   if (existing) return existing;
 
   const card = CARD_DEFINITIONS[cardId];
+  const rarityMeta = RARITY_META[card.rarity];
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 740;
   const ctx = canvas.getContext('2d')!;
 
-  // 1. Warm Cream / Parchment Card Base (Matches image_0.png, image_1.png, image_2.png)
+  // 1. Warm Cream / Parchment Card Base
   const parchmentGrad = ctx.createLinearGradient(0, 0, 0, 740);
   parchmentGrad.addColorStop(0, '#f5e6cc');
   parchmentGrad.addColorStop(0.5, '#ebd6b5');
@@ -305,13 +416,13 @@ export function getCardFrontTexture(cardId: CardId): THREE.CanvasTexture {
   drawRoundedRect(ctx, 0, 0, 512, 740, 34);
   ctx.fill();
 
-  // Subtle outer bevel border
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = '#b9996e';
-  drawRoundedRect(ctx, 4, 4, 504, 732, 32);
+  // Rarity-coded outer bevel border
+  ctx.lineWidth = card.rarity === 'legendary' ? 12 : 9;
+  ctx.strokeStyle = rarityMeta.borderHex;
+  drawRoundedRect(ctx, 5, 5, 502, 730, 32);
   ctx.stroke();
 
-  // 2. Top Color-Coded Header Banner (Blue for LOAD LIVE, Orange for STRIP SHELL, Green for PAD CYLINDER)
+  // 2. Top Color-Coded Header Banner
   ctx.fillStyle = card.headerBgColor;
   drawRoundedRect(ctx, 22, 22, 468, 86, 20);
   ctx.fill();
@@ -321,11 +432,12 @@ export function getCardFrontTexture(cardId: CardId): THREE.CanvasTexture {
   drawRoundedRect(ctx, 22, 22, 468, 86, 20);
   ctx.stroke();
 
-  // Bold Chunky Cartoon Header Title with Dark Outline
-  ctx.font = '900 42px "Space Grotesk", system-ui, sans-serif';
+  // Bold Chunky Cartoon Header Title (auto-fit long names)
+  const titleSize = card.name.length > 13 ? 32 : card.name.length > 10 ? 36 : 42;
+  ctx.font = `900 ${titleSize}px "Space Grotesk", system-ui, sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.lineWidth = 10;
+  ctx.lineWidth = 9;
   ctx.strokeStyle = '#1c120c';
   ctx.strokeText(card.name, 256, 66);
   ctx.fillStyle = '#fffbeb';
@@ -345,7 +457,21 @@ export function getCardFrontTexture(cardId: CardId): THREE.CanvasTexture {
   ctx.stroke();
 
   // Draw the custom 3D-style icon illustration
-  drawCardIllustration(ctx, card, 256, 308);
+  drawCardIllustration(ctx, card, 256, 300);
+
+  // Rarity Pill Badge at bottom of Art Frame
+  ctx.fillStyle = rarityMeta.badgeBg;
+  drawRoundedRect(ctx, 156, 456, 200, 34, 14);
+  ctx.fill();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = rarityMeta.borderHex;
+  drawRoundedRect(ctx, 156, 456, 200, 34, 14);
+  ctx.stroke();
+  ctx.fillStyle = rarityMeta.textHex;
+  ctx.font = '800 18px "Space Grotesk", system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(rarityMeta.label, 256, 474);
 
   // 4. Bottom Parchment Description Box (Matches image_0.png bottom text area)
   ctx.fillStyle = '#e8d4b4';

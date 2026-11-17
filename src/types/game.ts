@@ -1,15 +1,31 @@
 export type ShellType = 'empty' | 'live' | 'blank' | 'heavy';
 
-export type CardColor = 'red' | 'blue' | 'purple';
+export type CardColor = 'red' | 'blue' | 'purple' | 'gold';
 export type CardCategory = CardColor;
+export type CardRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 
 export type CardId =
-  | 'red_crimsonslug'
-  | 'red_hollowpoint'
-  | 'blue_silverblank'
-  | 'blue_hairtrigger'
-  | 'purple_jinxpin'
-  | 'purple_recoilcurse';
+  | 'red_crimsonslug' // Kept: Load Live (Common)
+  | 'blue_brace'
+  | 'blue_dumpshell'
+  | 'blue_quickdraw'
+  | 'red_doubletap'
+  | 'purple_riggedspin'
+  | 'blue_fieldpatch'
+  | 'red_concussion'
+  | 'red_twinload'
+  | 'purple_misfire'
+  | 'purple_hairtrigger'
+  | 'purple_jammer'
+  | 'red_bloodpact'
+  | 'purple_ricochet'
+  | 'blue_bandolier'
+  | 'purple_sleightofhand'
+  | 'blue_adrenaline'
+  | 'red_russianroulette'
+  | 'gold_goldengun'
+  | 'gold_silverbullet'
+  | 'gold_rewind';
 
 export type ActorSide = 'player' | 'opponent';
 export type AimChoice = 'opponent' | 'self';
@@ -22,15 +38,43 @@ export interface ChamberFireContext {
 
 export type CardEffectType =
   | 'load_live'
-  | 'load_heavy'
-  | 'strip_live'
-  | 'spin_drum'
-  | 'peek_next'
-  | 'deflect';
+  | 'brace'
+  | 'dump_shell'
+  | 'quick_draw'
+  | 'double_tap'
+  | 'rigged_spin'
+  | 'field_patch'
+  | 'concussion_round'
+  | 'twin_load'
+  | 'misfire'
+  | 'hair_trigger'
+  | 'jammer'
+  | 'blood_pact'
+  | 'ricochet'
+  | 'bandolier'
+  | 'sleight_of_hand'
+  | 'adrenaline_shot'
+  | 'russian_roulette'
+  | 'golden_gun'
+  | 'silver_bullet'
+  | 'rewind_cylinder';
 
 export interface ChamberFireResult {
   damageToTarget: number;
   logMessage: string;
+  piercing?: boolean;
+  discardOnHit?: number;
+}
+
+export interface LastFiredShotInfo {
+  label: string;
+  cardId: CardId | null;
+  color: CardColor | 'blank';
+  rarity?: CardRarity;
+  damage: number;
+  target: ActorSide;
+  wasBlank: boolean;
+  note?: string;
 }
 
 export interface CardDef {
@@ -38,6 +82,7 @@ export interface CardDef {
   name: string;
   color: CardColor;
   category: CardCategory;
+  rarity: CardRarity;
   effectType: CardEffectType;
   shortTag: string;
   description: string;
