@@ -2,20 +2,17 @@ import React, { useEffect, useRef } from 'react';
 import {
   Volume2,
   VolumeX,
-  Layers,
   Sparkles,
   RotateCcw,
   Skull,
   Search,
   ArrowRight,
   Settings,
-  Plus,
   Crosshair,
   Bell,
 } from 'lucide-react';
 import {
   ActorSide,
-  CardId,
   CardInstance,
   ChamberSlot,
   LastFiredShotInfo,
@@ -23,8 +20,6 @@ import {
   TurnPhase,
 } from '../../types/game';
 import {
-  ALL_CARD_IDS,
-  CARD_DEFINITIONS,
   countChamberCardTypes,
   isLiveChamberCard,
   LADDER_OPPONENTS,
@@ -73,6 +68,35 @@ function useDialogLightDismissFallback(
   }, [dialogRef]);
 }
 
+function CartoonHeart({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 32 30"
+      className={`w-6 h-6 sm:w-7 sm:h-7 transition-transform duration-200 ${
+        filled ? 'scale-100 drop-shadow-[0_2px_2px_rgba(0,0,0,0.45)]' : 'scale-90 opacity-45'
+      }`}
+      aria-hidden="true"
+    >
+      <path
+        d="M16 27.5C16 27.5 3.5 19.6 3.5 10.4C3.5 6.3 6.7 3.2 10.6 3.2C13 3.2 15.1 4.4 16 6.2C16.9 4.4 19 3.2 21.4 3.2C25.3 3.2 28.5 6.3 28.5 10.4C28.5 19.6 16 27.5 16 27.5Z"
+        fill={filled ? '#e83b46' : '#5e321a'}
+        stroke="#2b1307"
+        strokeWidth="2.6"
+        strokeLinejoin="round"
+      />
+      {filled && (
+        <path
+          d="M8.2 8.8C8.8 7.1 10.3 6.2 12 6.4"
+          fill="none"
+          stroke="#ff9da3"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      )}
+    </svg>
+  );
+}
+
 interface HudAndModalsProps {
   opponent: OpponentDef;
   stageIndex: number;
@@ -93,8 +117,6 @@ interface HudAndModalsProps {
   cylinderSlots: ChamberSlot[];
   currentChamberIdx: number;
   showChamberCounts: boolean;
-  sharedDeckCount: number;
-  discardCount: number;
   playerHand: CardInstance[];
   selectedLoadCards: CardInstance[];
   selectedCard: CardInstance | null;
@@ -114,7 +136,6 @@ interface HudAndModalsProps {
   onHoverCard: (card: CardInstance | null) => void;
   onRingBell: () => void;
   onContinueTurn: () => void;
-  onDraftCard: (cardId: CardId) => void;
   onToggleChamberCounts: () => void;
   onAdvanceNextStage: () => void;
   onRestartRun: () => void;
@@ -127,7 +148,6 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   opponent,
   stageIndex,
   roundNumber,
-  turnNumber,
   turnTarget,
   phase,
   statusBanner,
@@ -143,8 +163,6 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   cylinderSlots,
   currentChamberIdx,
   showChamberCounts,
-  sharedDeckCount,
-  discardCount,
   selectedCard,
   hoveredCard,
   muted,
@@ -153,7 +171,6 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   stats,
   onRingBell,
   onContinueTurn,
-  onDraftCard,
   onToggleChamberCounts,
   onAdvanceNextStage,
   onRestartRun,
@@ -161,16 +178,9 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   onChangeFocusMode,
   onToggleBlenderAssets,
 }) => {
-  const draftDialogRef = useRef<HTMLDialogElement | null>(null);
   const rulesDialogRef = useRef<HTMLDialogElement | null>(null);
 
-  useDialogLightDismissFallback(draftDialogRef);
   useDialogLightDismissFallback(rulesDialogRef);
-
-  const openDraftModal = () => {
-    soundEngine.playCardHover();
-    draftDialogRef.current?.showModal();
-  };
 
   const openRulesModal = () => {
     soundEngine.playCardHover();
@@ -188,37 +198,44 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
       {/* ==================================================================== */}
       {/* TOP BAR: Player/Chamber Info, Clear Turn Flow Banner, Opponent Info  */}
       {/* ==================================================================== */}
-      <header className="flex items-start justify-between gap-2">
-        {/* Top-Left: Player HP, Round/Turn & 6-Chamber Strip */}
-        <div className="pointer-events-auto flex flex-col gap-1 rounded-xl bg-stone-950/80 border border-amber-900/50 backdrop-blur-xs px-3 py-1.5 shadow-lg">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-xs tracking-wider uppercase text-amber-200/80">
-                YOU
-              </span>
-              <span className="font-black text-sm text-rose-400">
-                {playerHp}/{playerMaxHp} HP
-              </span>
-            </div>
+      <header className="flex items-start justify-between gap-3">
+        {/* Top-Left: YOU + Heart Pill + Round/Shells + Drum */}
+        <div className="pointer-events-auto flex flex-col items-start gap-1.5">
+          <div className="font-black text-xl sm:text-2xl leading-none tracking-wide uppercase text-[#fff5dc] cartoon-stroke-lg">
+            YOU
+          </div>
 
-            <span className="text-amber-900/70">|</span>
+          {/* Warm Wooden Pill Containing Player Hearts */}
+          <div
+            className="flex items-center gap-1 rounded-2xl bg-gradient-to-b from-[#e4b384] to-[#c68b59] border-[3px] border-[#3b1c0a] px-2.5 py-1.5 shadow-[0_4px_0_#261106,0_8px_16px_rgba(0,0,0,0.5)]"
+            aria-label={`Your HP: ${playerHp} of ${playerMaxHp}`}
+          >
+            {Array.from({ length: playerMaxHp }).map((_, i) => (
+              <CartoonHeart key={i} filled={i < playerHp} />
+            ))}
+          </div>
 
+          {/* Round & Live/Blank Count */}
+          <div className="flex items-center gap-2.5 pl-0.5 text-xs sm:text-sm font-black tracking-wide uppercase text-[#fff5dc] cartoon-stroke">
+            <span>ROUND {roundNumber}</span>
             <button
               type="button"
               onClick={onToggleChamberCounts}
               title="Toggle Live/Blank shell count visibility"
-              className="font-mono text-xs font-bold text-amber-100/90 hover:text-amber-300 cursor-pointer"
+              className="hover:text-amber-300 cursor-pointer uppercase"
             >
-              R{roundNumber}·T{turnNumber} ·{' '}
               {showChamberCounts
                 ? `${liveCount} LIVE / ${blankCount} BLANK`
                 : `${6 - counts.empty}/6 LOADED`}
             </button>
           </div>
 
-          {/* 6-Chamber Drum Tracker + Last Fired Card Chip */}
-          <div className="flex flex-wrap items-center gap-1.5" title="6-Chamber Drum Progress">
-            <span className="font-mono text-[10px] text-amber-200/60">
+          {/* 6-Chamber Drum Tracker + Last Fired Shot */}
+          <div
+            className="flex flex-wrap items-center gap-1.5 pl-0.5"
+            title="6-Chamber Drum Progress"
+          >
+            <span className="text-[11px] font-black tracking-wider uppercase text-[#f3d4a5] cartoon-stroke">
               DRUM:
             </span>
             <div className="flex items-center gap-1">
@@ -226,6 +243,12 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
                 const isSpent = slot.spent;
                 const wasLive = isSpent && isLiveChamberCard(slot.card);
                 const wasGold = isSpent && slot.card?.def.color === 'gold';
+                const isActive =
+                  !isSpent &&
+                  idx === currentChamberIdx &&
+                  (phase === 'RESOLVE_CHAMBER' ||
+                    phase === 'FIRE_PLAYER' ||
+                    phase === 'FIRE_OPPONENT');
                 const slotTitle = isSpent
                   ? slot.card
                     ? `Fired: ${slot.card.def.name}`
@@ -235,22 +258,19 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
                   <span
                     key={slot.index}
                     title={slotTitle}
-                    className={`w-4 h-4 rounded-full flex items-center justify-center font-mono text-[9px] font-black border ${
+                    className={`w-5 h-5 rounded-full flex items-center justify-center font-mono text-[10px] font-black border-2 shadow-sm ${
                       isSpent
                         ? wasGold
-                          ? 'bg-amber-950/90 border-amber-400 text-amber-300'
+                          ? 'bg-gradient-to-b from-amber-300 to-amber-500 border-[#3b1c0a] text-[#2a1306]'
                           : wasLive
-                          ? 'bg-rose-950/90 border-rose-500 text-rose-300'
-                          : 'bg-stone-900/80 border-stone-600 text-stone-400'
-                        : idx === currentChamberIdx &&
-                          (phase === 'RESOLVE_CHAMBER' ||
-                            phase === 'FIRE_PLAYER' ||
-                            phase === 'FIRE_OPPONENT')
-                        ? 'bg-amber-400 border-amber-200 text-stone-950 scale-110 shadow-sm'
-                        : 'bg-stone-800/90 border-amber-700/60 text-amber-200/80'
+                          ? 'bg-gradient-to-b from-rose-500 to-rose-700 border-[#3b1c0a] text-white'
+                          : 'bg-gradient-to-b from-[#cfa276] to-[#9b6c43] border-[#3b1c0a] text-[#2a1306]'
+                        : isActive
+                        ? 'bg-amber-400 border-[#fff5dc] text-stone-950 scale-110 shadow-md'
+                        : 'bg-[#361c0d]/90 border-[#9c6b43] text-[#d9a873]'
                     }`}
                   >
-                    {isSpent ? (wasGold ? '★' : wasLive ? '!' : '·') : '?'}
+                    {isSpent ? (wasGold ? '★' : wasLive ? '!' : '') : '?'}
                   </span>
                 );
               })}
@@ -258,16 +278,16 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
 
             {lastFiredShot && (
               <div
-                className={`flex items-center gap-1 px-2 py-0.5 rounded-md border font-mono text-[10px] font-bold ${
+                className={`flex items-center gap-1 px-2 py-0.5 rounded-lg border-2 font-mono text-[10px] font-bold shadow ${
                   lastFiredShot.wasBlank
-                    ? 'bg-stone-900/90 border-stone-600 text-stone-300'
+                    ? 'bg-[#361c0d]/90 border-[#9c6b43] text-[#f5d8a8]'
                     : lastFiredShot.color === 'gold'
-                    ? 'bg-amber-950/90 border-amber-400 text-amber-200'
-                    : 'bg-rose-950/90 border-rose-500 text-rose-200'
+                    ? 'bg-amber-950/95 border-amber-400 text-amber-200'
+                    : 'bg-rose-950/95 border-rose-500 text-rose-200'
                 }`}
               >
                 <span>LAST: {lastFiredShot.label}</span>
-                <span className="opacity-80">
+                <span className="opacity-85">
                   {lastFiredShot.damage > 0 ? `(-${lastFiredShot.damage} HP)` : '(SAFE)'}
                 </span>
               </div>
@@ -275,28 +295,28 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
           </div>
         </div>
 
-        {/* Top-Center: Clear Turn Flow & Target Banner (Always Visible) */}
-        <div className="pointer-events-none flex flex-col items-center gap-1 max-w-lg text-center">
+        {/* Top-Center: Wooden Plaque Turn Flow & Target Banner */}
+        <div className="pointer-events-none flex flex-col items-center gap-1.5 max-w-xl text-center">
           <div
-            className={`px-4 py-1.5 rounded-2xl bg-stone-950/85 border-2 backdrop-blur-xs shadow-xl ${
+            className={`px-6 py-2 rounded-2xl bg-gradient-to-b from-[#4f2b17] to-[#32190c] border-[3px] shadow-[0_4px_0_#210f05,0_10px_20px_rgba(0,0,0,0.6)] ${
               phase === 'PICK_TARGET' ||
               phase === 'RESOLVE_CHAMBER' ||
               phase === 'FIRE_PLAYER' ||
               phase === 'FIRE_OPPONENT' ||
               phase === 'TURN_RESULT'
                 ? isAimedAtOpponent
-                  ? 'border-emerald-400/75'
-                  : 'border-rose-500/80'
-                : 'border-amber-400/70'
+                  ? 'border-emerald-400'
+                  : 'border-rose-400'
+                : 'border-[#d7a66d]'
             }`}
           >
-            <div className="flex items-center justify-center gap-1.5 text-xs sm:text-sm font-black tracking-wide text-amber-50 uppercase">
+            <div className="flex items-center justify-center gap-1.5 text-sm sm:text-lg font-black tracking-wide text-[#fff5dc] uppercase cartoon-stroke">
               {(phase === 'PICK_TARGET' ||
                 phase === 'RESOLVE_CHAMBER' ||
                 phase === 'FIRE_PLAYER' ||
                 phase === 'FIRE_OPPONENT') && (
                 <Crosshair
-                  className={`w-3.5 h-3.5 shrink-0 ${
+                  className={`w-4 h-4 shrink-0 ${
                     isAimedAtOpponent ? 'text-emerald-400' : 'text-rose-400'
                   }`}
                 />
@@ -304,7 +324,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
               <span>{statusBanner}</span>
             </div>
             {subBanner && (
-              <div className="text-[11px] font-medium text-amber-200/85 mt-0.5 leading-snug">
+              <div className="text-[11px] sm:text-xs font-bold text-[#f5d8a8] mt-0.5 leading-snug">
                 {subBanner}
               </div>
             )}
@@ -317,7 +337,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
               <div
                 className={`px-3.5 py-1 rounded-full border-2 font-mono text-xs font-black tracking-wide shadow-lg ${
                   lastFiredShot.wasBlank
-                    ? 'bg-stone-900/95 border-stone-400 text-stone-100'
+                    ? 'bg-[#361c0d]/95 border-[#c69563] text-[#fff5dc]'
                     : lastFiredShot.color === 'gold'
                     ? 'bg-amber-950/95 border-amber-400 text-amber-200'
                     : 'bg-rose-950/95 border-rose-400 text-rose-100'
@@ -332,79 +352,76 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
             )}
 
           {lastTurnSummary && phase === 'PLAYER_SELECT' && (
-            <div className="px-3 py-0.5 rounded-full bg-stone-950/75 border border-amber-900/50 text-amber-200/80 font-mono text-[10px] sm:text-[11px] max-w-full truncate shadow">
+            <div className="px-3.5 py-0.5 rounded-full bg-[#2f180b]/90 border-2 border-[#a87849] text-[#f5d8a8] font-mono text-[10px] sm:text-[11px] max-w-full truncate shadow">
               {lastTurnSummary}
             </div>
           )}
 
           {peekedSlotInfo && (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-950/90 border border-sky-400/70 text-sky-100 font-mono text-[11px] font-bold shadow-md">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-950/90 border-2 border-sky-400 text-sky-100 font-mono text-[11px] font-bold shadow-md">
               <Search className="w-3 h-3 text-sky-300 shrink-0" aria-hidden="true" />
               <span>{peekedSlotInfo}</span>
             </div>
           )}
 
           {opponentSpeech && phase !== 'PLAYER_SELECT' && (
-            <div className="hidden sm:block px-3 py-0.5 rounded-full bg-stone-950/75 text-amber-200/85 font-mono text-[11px] italic truncate max-w-full">
+            <div className="hidden sm:block px-3.5 py-0.5 rounded-full bg-[#2f180b]/90 border border-[#a87849]/70 text-[#f5d8a8] font-mono text-[11px] italic truncate max-w-full shadow">
               {opponentSpeech}
             </div>
           )}
         </div>
 
-        {/* Top-Right: Opponent HP & Compact Audio/Settings Icons */}
-        <div className="pointer-events-auto flex items-center gap-1.5">
-          <div className="flex items-center gap-1.5 rounded-xl bg-stone-950/80 border border-amber-900/50 backdrop-blur-xs px-3 py-1.5 shadow-lg">
-            <span className="font-bold text-xs tracking-wider uppercase text-amber-200/80">
+        {/* Top-Right: Opponent Name + Settings & Sound + Heart Pill */}
+        <div className="pointer-events-auto flex flex-col items-end gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="font-black text-xl sm:text-2xl leading-none tracking-wide uppercase text-[#fff5dc] cartoon-stroke-lg">
               {opponent.name}
             </span>
-            <span className="font-black text-sm text-rose-400">
-              {opponentHp}/{opponentMaxHp} HP
-            </span>
+
+            <button
+              type="button"
+              onClick={openRulesModal}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-b from-[#7eb7d3] to-[#4b84a0] hover:from-[#8ec6e0] hover:to-[#5a94b0] border-[3px] border-[#2a1508] text-[#fff8eb] flex items-center justify-center cursor-pointer shadow-[0_3px_0_#210f05,0_6px_12px_rgba(0,0,0,0.45)]"
+              title="Settings & Rules"
+              aria-label="Settings and Rules"
+            >
+              <Settings className="w-5 h-5 drop-shadow" />
+            </button>
+
+            <button
+              type="button"
+              onClick={onToggleMute}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-b from-[#de8142] to-[#b25621] hover:from-[#ec9052] hover:to-[#c2632b] border-[3px] border-[#2a1508] text-[#fff8eb] flex items-center justify-center cursor-pointer shadow-[0_3px_0_#210f05,0_6px_12px_rgba(0,0,0,0.45)]"
+              aria-label={muted ? 'Unmute Audio' : 'Mute Audio'}
+              title={muted ? 'Unmute Audio' : 'Mute Audio'}
+            >
+              {muted ? (
+                <VolumeX className="w-5 h-5 text-rose-200 drop-shadow" />
+              ) : (
+                <Volume2 className="w-5 h-5 drop-shadow" />
+              )}
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={onToggleMute}
-            className="p-2 rounded-xl bg-stone-950/80 hover:bg-stone-900 border border-amber-900/50 text-amber-100 cursor-pointer shadow-lg"
-            aria-label={muted ? 'Unmute Audio' : 'Mute Audio'}
-            title={muted ? 'Unmute Audio' : 'Mute Audio'}
+          {/* Warm Wooden Pill Containing Opponent Hearts */}
+          <div
+            className="flex items-center gap-1 rounded-2xl bg-gradient-to-b from-[#e4b384] to-[#c68b59] border-[3px] border-[#3b1c0a] px-2.5 py-1.5 shadow-[0_4px_0_#261106,0_8px_16px_rgba(0,0,0,0.5)]"
+            aria-label={`${opponent.name} HP: ${opponentHp} of ${opponentMaxHp}`}
           >
-            {muted ? (
-              <VolumeX className="w-4 h-4 text-rose-400" />
-            ) : (
-              <Volume2 className="w-4 h-4 text-amber-300" />
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={openRulesModal}
-            className="p-2 rounded-xl bg-stone-950/80 hover:bg-stone-900 border border-amber-900/50 text-amber-100 cursor-pointer shadow-lg"
-            title="Settings & Rules"
-            aria-label="Settings and Rules"
-          >
-            <Settings className="w-4 h-4 text-amber-200" />
-          </button>
+            {Array.from({ length: opponentMaxHp }).map((_, i) => (
+              <CartoonHeart key={i} filled={i < opponentHp} />
+            ))}
+          </div>
         </div>
       </header>
 
       {/* ==================================================================== */}
-      {/* BOTTOM BAR: Draft, Card Preview + Lock In Action, Deck/Discard       */}
+      {/* BOTTOM BAR: Centered Card Preview + Lock-In / Continue Action        */}
       {/* ==================================================================== */}
-      <footer className="flex items-end justify-between gap-2">
-        <button
-          type="button"
-          onClick={openDraftModal}
-          className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-950/80 hover:bg-stone-900 border border-amber-900/50 backdrop-blur-xs text-xs font-bold tracking-wider uppercase text-amber-100 shadow-lg cursor-pointer"
-        >
-          <Plus className="w-3.5 h-3.5 text-sky-300" />
-          <span>DRAFT</span>
-        </button>
-
-        {/* Center Card Preview & Clear Lock-In Button */}
+      <footer className="flex items-end justify-center">
         <div className="pointer-events-none flex flex-col items-center gap-1.5">
           {activeCardPreview && phase === 'PLAYER_SELECT' && (
-            <div className="px-3.5 py-1 rounded-xl bg-stone-950/90 border border-amber-500/60 backdrop-blur-xs text-xs text-amber-100 shadow-lg max-w-md text-center">
+            <div className="px-4 py-1.5 rounded-xl bg-[#2f180b]/95 border-2 border-[#d7a66d] text-xs text-[#fff5dc] shadow-[0_4px_12px_rgba(0,0,0,0.6)] max-w-md text-center">
               <span className="font-black text-amber-300">
                 {activeCardPreview.def.name} ({RARITY_META[activeCardPreview.def.rarity].label}):
               </span>{' '}
@@ -422,7 +439,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
                 soundEngine.playBrassBell();
                 onRingBell();
               }}
-              className="pointer-events-auto flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 hover:from-amber-300 hover:to-amber-500 border-2 border-amber-200 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl cursor-pointer transition-transform active:scale-95"
+              className="pointer-events-auto flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-b from-[#f7c85c] to-[#d48b22] hover:from-[#ffd670] hover:to-[#e59b2e] border-[3px] border-[#3b1c0a] text-[#2a1306] font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_4px_0_#261106,0_8px_18px_rgba(0,0,0,0.55)] cursor-pointer transition-transform active:scale-95"
             >
               <Bell className="w-4 h-4" />
               <span>
@@ -440,25 +457,13 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
                 soundEngine.playCardHover();
                 onContinueTurn();
               }}
-              className="pointer-events-auto flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 border-2 border-emerald-200 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl cursor-pointer transition-transform active:scale-95"
+              className="pointer-events-auto flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 border-[3px] border-[#133521] text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-[0_4px_0_#0b2214,0_8px_18px_rgba(0,0,0,0.55)] cursor-pointer transition-transform active:scale-95"
             >
               <span>CONTINUE</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           )}
         </div>
-
-        <button
-          type="button"
-          onClick={openDraftModal}
-          title="Inspect Deck & Discard"
-          className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-xl bg-stone-950/80 hover:bg-stone-900 border border-amber-900/50 backdrop-blur-xs font-mono text-[11px] font-bold text-amber-100/90 shadow-lg cursor-pointer"
-        >
-          <Layers className="w-3.5 h-3.5 text-amber-300" />
-          <span>DECK {sharedDeckCount}</span>
-          <span className="text-amber-900/70">·</span>
-          <span className="text-stone-400">DISCARD {discardCount}</span>
-        </button>
       </footer>
 
       {/* ==================================================================== */}
@@ -528,91 +533,6 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
           </div>
         </div>
       )}
-
-      {/* ==================================================================== */}
-      {/* DRAFT CARDS & DECK INSPECTOR MODAL                                   */}
-      {/* ==================================================================== */}
-      <dialog
-        ref={draftDialogRef}
-        {...({ closedby: 'any' } as React.DialogHTMLAttributes<HTMLDialogElement>)}
-        aria-labelledby="draft-dialog-title"
-        className="pointer-events-auto m-auto max-w-2xl w-[92vw] rounded-2xl bg-[#26160c] text-amber-50 border-[3px] border-[#b88655] p-6 shadow-2xl backdrop:bg-black/75 backdrop:backdrop-blur-xs"
-      >
-        <div className="flex items-center justify-between border-b border-amber-900/60 pb-3">
-          <div>
-            <h2
-              id="draft-dialog-title"
-              className="font-black text-xl text-[#fff5dc] cartoon-stroke"
-            >
-              DRAFT CARDS & DECK ARSENAL
-            </h2>
-            <p className="text-xs text-amber-200/80 mt-0.5">
-              Click any card below to draft a copy into your hand (up to 5 cards in hand).
-            </p>
-          </div>
-          <form method="dialog">
-            <button
-              type="submit"
-              autoFocus
-              className="px-3.5 py-1.5 rounded-xl bg-[#472a17] hover:bg-[#5c371e] border border-[#a47449] text-amber-100 font-mono text-xs font-bold cursor-pointer"
-            >
-              CLOSE [ESC]
-            </button>
-          </form>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4 max-h-[60vh] overflow-y-auto pr-1">
-          {ALL_CARD_IDS.map((id) => {
-            const c = CARD_DEFINITIONS[id];
-            const rMeta = RARITY_META[c.rarity];
-            return (
-              <div
-                key={id}
-                style={{ borderColor: rMeta.borderHex }}
-                className="p-3.5 rounded-xl bg-[#1a0f08]/90 border-2 flex flex-col justify-between gap-2"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-black text-sm text-[#fff5dc]">
-                      {c.name}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <span
-                        className="font-mono text-[9px] font-black px-1.5 py-0.5 rounded"
-                        style={{ backgroundColor: rMeta.badgeBg, color: rMeta.textHex }}
-                      >
-                        {rMeta.label}
-                      </span>
-                      <span
-                        className="font-mono text-[10px] font-extrabold px-2 py-0.5 rounded bg-black/50"
-                        style={{ color: c.accentColor }}
-                      >
-                        {c.badgeText}
-                      </span>
-                    </div>
-                  </div>
-                  <p className="text-xs text-amber-100/90 mt-1.5">
-                    {c.description}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    soundEngine.playCardSlide();
-                    onDraftCard(id);
-                    draftDialogRef.current?.close();
-                  }}
-                  className="mt-1 w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg bg-gradient-to-b from-[#6ba3be] to-[#3f6f87] border border-[#a8d8ee] text-[#fff8eb] font-black text-xs uppercase cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>DRAFT {c.name} TO HAND</span>
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      </dialog>
 
       {/* ==================================================================== */}
       {/* SETTINGS & RULES MODAL                                               */}

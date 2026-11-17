@@ -1341,8 +1341,6 @@ export const App: React.FC = () => {
         cylinderSlots={cylinderSlots}
         currentChamberIdx={currentChamberIdx}
         showChamberCounts={showChamberCounts}
-        sharedDeckCount={sharedDeckCount}
-        discardCount={discardCount}
         playerHand={playerHand}
         selectedLoadCards={selectedLoadCards}
         selectedCard={selectedCard}
@@ -1357,7 +1355,6 @@ export const App: React.FC = () => {
         onHoverCard={setHoveredCard}
         onRingBell={handleRingBell}
         onContinueTurn={handleContinueTurn}
-        onDraftCard={handleDraftCard}
         onToggleChamberCounts={() => setShowChamberCounts((v) => !v)}
         onAdvanceNextStage={() =>
           startStage((stageIndex + 1) % LADDER_OPPONENTS.length)
