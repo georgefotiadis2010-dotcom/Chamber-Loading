@@ -10,8 +10,11 @@ import {
   ArrowRight,
   Settings,
   Plus,
+  Crosshair,
+  Bell,
 } from 'lucide-react';
 import {
+  ActorSide,
   CardId,
   CardInstance,
   ChamberSlot,
@@ -72,6 +75,7 @@ interface HudAndModalsProps {
   stageIndex: number;
   roundNumber: number;
   turnNumber: number;
+  turnTarget: ActorSide;
   phase: TurnPhase;
   statusBanner: string;
   subBanner: string;
@@ -117,8 +121,11 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   opponent,
   stageIndex,
   roundNumber,
+  turnNumber,
+  turnTarget,
   phase,
   statusBanner,
+  subBanner,
   opponentSpeech,
   peekedSlotInfo,
   playerHp,
@@ -126,13 +133,17 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   opponentHp,
   opponentMaxHp,
   cylinderSlots,
+  currentChamberIdx,
   showChamberCounts,
   sharedDeckCount,
   discardCount,
+  selectedCard,
+  hoveredCard,
   muted,
   focusMode,
   useBlenderAssets,
   stats,
+  onRingBell,
   onDraftCard,
   onToggleChamberCounts,
   onAdvanceNextStage,
@@ -160,54 +171,104 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   const counts = countChamberCardTypes(cylinderSlots);
   const liveCount = counts.red;
   const blankCount = counts.blue + counts.purple + counts.empty;
+  const activeCardPreview = hoveredCard ?? selectedCard;
+  const isAimedAtOpponent = turnTarget === 'opponent';
 
   return (
     <div className="pointer-events-none fixed inset-0 z-10 flex flex-col justify-between p-3 sm:p-4 select-none">
       {/* ==================================================================== */}
-      {/* MINIMAL TOP BAR: Compact Corner Pills Only                           */}
+      {/* TOP BAR: Player/Chamber Info, Clear Turn Flow Banner, Opponent Info  */}
       {/* ==================================================================== */}
       <header className="flex items-start justify-between gap-2">
-        {/* Top-Left: Player HP & Round/Chamber Pill */}
-        <div className="pointer-events-auto flex items-center gap-2 rounded-xl bg-stone-950/75 border border-amber-900/50 backdrop-blur-xs px-3 py-1.5 shadow-lg">
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-xs tracking-wider uppercase text-amber-200/80">
-              YOU
-            </span>
-            <span className="font-black text-sm text-rose-400">
-              {playerHp}/{playerMaxHp}
-            </span>
+        {/* Top-Left: Player HP, Round/Turn & 6-Chamber Strip */}
+        <div className="pointer-events-auto flex flex-col gap-1 rounded-xl bg-stone-950/80 border border-amber-900/50 backdrop-blur-xs px-3 py-1.5 shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-xs tracking-wider uppercase text-amber-200/80">
+                YOU
+              </span>
+              <span className="font-black text-sm text-rose-400">
+                {playerHp}/{playerMaxHp} HP
+              </span>
+            </div>
+
+            <span className="text-amber-900/70">|</span>
+
+            <button
+              type="button"
+              onClick={onToggleChamberCounts}
+              title="Toggle Live/Blank shell count visibility"
+              className="font-mono text-xs font-bold text-amber-100/90 hover:text-amber-300 cursor-pointer"
+            >
+              R{roundNumber}·T{turnNumber} ·{' '}
+              {showChamberCounts
+                ? `${liveCount} LIVE / ${blankCount} BLANK`
+                : `${counts.remaining} LEFT`}
+            </button>
           </div>
 
-          <span className="text-amber-900/70">|</span>
-
-          <button
-            type="button"
-            onClick={onToggleChamberCounts}
-            title="Toggle chamber count visibility"
-            className="font-mono text-xs font-bold text-amber-100/90 hover:text-amber-300 cursor-pointer"
-          >
-            R{roundNumber} ·{' '}
-            {showChamberCounts
-              ? `${liveCount}L / ${blankCount}B`
-              : `${counts.remaining} LEFT`}
-          </button>
+          {/* 6-Chamber Cylinder Progress Indicator */}
+          <div className="flex items-center gap-1" title="6-Chamber Cylinder Progress">
+            <span className="font-mono text-[10px] text-amber-200/60 mr-1">
+              CHAMBERS:
+            </span>
+            {cylinderSlots.map((slot, idx) => {
+              const isCurrent = idx === currentChamberIdx && !slot.spent;
+              return (
+                <span
+                  key={slot.index}
+                  className={`w-3.5 h-3.5 rounded-full flex items-center justify-center font-mono text-[9px] font-black border ${
+                    slot.spent
+                      ? 'bg-stone-900/80 border-stone-700 text-stone-600'
+                      : isCurrent
+                      ? 'bg-amber-400 border-amber-200 text-stone-950 scale-110 shadow-sm'
+                      : 'bg-stone-800/90 border-amber-700/60 text-amber-200/80'
+                  }`}
+                >
+                  {slot.spent ? '×' : idx + 1}
+                </span>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Top-Center: Subtle single-line status / peek / speech pill (never covers cards) */}
-        <div className="pointer-events-none hidden sm:flex flex-col items-center gap-1 max-w-md">
-          {phase !== 'PLAYER_SELECT' && (
-            <div className="px-3.5 py-1 rounded-full bg-stone-950/75 border border-amber-700/40 backdrop-blur-xs text-xs font-bold tracking-wide text-amber-100 uppercase shadow-md truncate max-w-full">
-              {statusBanner}
+        {/* Top-Center: Clear Turn Flow & Target Banner (Always Visible) */}
+        <div className="pointer-events-none flex flex-col items-center gap-1 max-w-lg text-center">
+          <div
+            className={`px-4 py-1.5 rounded-2xl bg-stone-950/85 border-2 backdrop-blur-xs shadow-xl ${
+              phase === 'PLAYER_SELECT'
+                ? isAimedAtOpponent
+                  ? 'border-emerald-400/70'
+                  : 'border-rose-500/80'
+                : 'border-amber-400/70'
+            }`}
+          >
+            <div className="flex items-center justify-center gap-1.5 text-xs sm:text-sm font-black tracking-wide text-amber-50 uppercase">
+              {phase === 'PLAYER_SELECT' && (
+                <Crosshair
+                  className={`w-3.5 h-3.5 shrink-0 ${
+                    isAimedAtOpponent ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
+                />
+              )}
+              <span>{statusBanner}</span>
             </div>
-          )}
+            {subBanner && (
+              <div className="text-[11px] font-medium text-amber-200/85 mt-0.5 leading-snug">
+                {subBanner}
+              </div>
+            )}
+          </div>
+
           {peekedSlotInfo && (
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-950/85 border border-sky-400/60 text-sky-100 font-mono text-[11px] font-bold shadow-md">
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-950/90 border border-sky-400/70 text-sky-100 font-mono text-[11px] font-bold shadow-md">
               <Search className="w-3 h-3 text-sky-300 shrink-0" aria-hidden="true" />
               <span>{peekedSlotInfo}</span>
             </div>
           )}
+
           {opponentSpeech && phase !== 'PLAYER_SELECT' && (
-            <div className="px-3 py-0.5 rounded-full bg-stone-950/70 text-amber-200/85 font-mono text-[11px] italic truncate max-w-full">
+            <div className="hidden sm:block px-3 py-0.5 rounded-full bg-stone-950/75 text-amber-200/85 font-mono text-[11px] italic truncate max-w-full">
               {opponentSpeech}
             </div>
           )}
@@ -215,19 +276,19 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
 
         {/* Top-Right: Opponent HP & Compact Audio/Settings Icons */}
         <div className="pointer-events-auto flex items-center gap-1.5">
-          <div className="flex items-center gap-1.5 rounded-xl bg-stone-950/75 border border-amber-900/50 backdrop-blur-xs px-3 py-1.5 shadow-lg">
+          <div className="flex items-center gap-1.5 rounded-xl bg-stone-950/80 border border-amber-900/50 backdrop-blur-xs px-3 py-1.5 shadow-lg">
             <span className="font-bold text-xs tracking-wider uppercase text-amber-200/80">
               {opponent.name}
             </span>
             <span className="font-black text-sm text-rose-400">
-              {opponentHp}/{opponentMaxHp}
+              {opponentHp}/{opponentMaxHp} HP
             </span>
           </div>
 
           <button
             type="button"
             onClick={onToggleMute}
-            className="p-2 rounded-xl bg-stone-950/75 hover:bg-stone-900 border border-amber-900/50 text-amber-100 cursor-pointer shadow-lg"
+            className="p-2 rounded-xl bg-stone-950/80 hover:bg-stone-900 border border-amber-900/50 text-amber-100 cursor-pointer shadow-lg"
             aria-label={muted ? 'Unmute Audio' : 'Mute Audio'}
             title={muted ? 'Unmute Audio' : 'Mute Audio'}
           >
@@ -241,7 +302,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
           <button
             type="button"
             onClick={openRulesModal}
-            className="p-2 rounded-xl bg-stone-950/75 hover:bg-stone-900 border border-amber-900/50 text-amber-100 cursor-pointer shadow-lg"
+            className="p-2 rounded-xl bg-stone-950/80 hover:bg-stone-900 border border-amber-900/50 text-amber-100 cursor-pointer shadow-lg"
             title="Settings & Rules"
             aria-label="Settings and Rules"
           >
@@ -251,23 +312,53 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
       </header>
 
       {/* ==================================================================== */}
-      {/* MINIMAL BOTTOM CORNERS: Draft & Deck/Discard Pills                   */}
+      {/* BOTTOM BAR: Draft, Card Preview + Lock In Action, Deck/Discard       */}
       {/* ==================================================================== */}
       <footer className="flex items-end justify-between gap-2">
         <button
           type="button"
           onClick={openDraftModal}
-          className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-950/75 hover:bg-stone-900 border border-amber-900/50 backdrop-blur-xs text-xs font-bold tracking-wider uppercase text-amber-100 shadow-lg cursor-pointer"
+          className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-950/80 hover:bg-stone-900 border border-amber-900/50 backdrop-blur-xs text-xs font-bold tracking-wider uppercase text-amber-100 shadow-lg cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5 text-sky-300" />
           <span>DRAFT</span>
         </button>
 
+        {/* Center Card Preview & Clear Lock-In Button */}
+        <div className="pointer-events-none flex flex-col items-center gap-1.5">
+          {activeCardPreview && phase === 'PLAYER_SELECT' && (
+            <div className="px-3.5 py-1 rounded-xl bg-stone-950/90 border border-amber-500/60 backdrop-blur-xs text-xs text-amber-100 shadow-lg max-w-md text-center">
+              <span className="font-black text-amber-300">
+                {activeCardPreview.def.name}:
+              </span>{' '}
+              <span>{activeCardPreview.def.description}</span>
+            </div>
+          )}
+
+          {phase === 'PLAYER_SELECT' && (
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.playBrassBell();
+                onRingBell();
+              }}
+              className="pointer-events-auto flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 hover:from-amber-300 hover:to-amber-500 border-2 border-amber-200 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl cursor-pointer transition-transform active:scale-95"
+            >
+              <Bell className="w-4 h-4" />
+              <span>
+                {selectedCard
+                  ? `LOCK IN ${selectedCard.def.name} & FIRE`
+                  : 'PASS & PULL TRIGGER'}
+              </span>
+            </button>
+          )}
+        </div>
+
         <button
           type="button"
           onClick={openDraftModal}
           title="Inspect Deck & Discard"
-          className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-xl bg-stone-950/75 hover:bg-stone-900 border border-amber-900/50 backdrop-blur-xs font-mono text-[11px] font-bold text-amber-100/90 shadow-lg cursor-pointer"
+          className="pointer-events-auto flex items-center gap-2 px-3 py-1.5 rounded-xl bg-stone-950/80 hover:bg-stone-900 border border-amber-900/50 backdrop-blur-xs font-mono text-[11px] font-bold text-amber-100/90 shadow-lg cursor-pointer"
         >
           <Layers className="w-3.5 h-3.5 text-amber-300" />
           <span>DECK {sharedDeckCount}</span>
@@ -514,29 +605,26 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
 
         <div className="space-y-2.5 text-sm text-amber-100/90 leading-relaxed max-h-[42vh] overflow-y-auto pr-1">
           <p>
-            <strong className="text-amber-300">1. Choose a Card from Your Hand:</strong>{' '}
-            Hover and click any 3D card in front of you (
-            <code className="text-sky-300">LOAD LIVE</code>,{' '}
-            <code className="text-amber-300">STRIP SHELL</code>,{' '}
-            <code className="text-lime-300">PAD CYLINDER</code>) to slide it onto the{' '}
-            <strong className="text-amber-200">LOCK IN SLOT</strong>.
+            <strong className="text-amber-300">1. Check Who Is in the Crosshairs:</strong>{' '}
+            The revolver alternates aim each turn —{' '}
+            <strong className="text-emerald-300">YOUR SHOT (at Opponent)</strong> then{' '}
+            <strong className="text-rose-400">ENEMY SHOT (at You)</strong>.
           </p>
           <p>
-            <strong className="text-amber-300">2. Simultaneous Lock In:</strong>{' '}
-            Click the <strong className="text-amber-300">LOCK IN</strong> brass bell (or
-            press{' '}
+            <strong className="text-amber-300">2. Play a Card (Optional):</strong>{' '}
+            Click a card in your hand to lock it in (or pass to save cards):{' '}
+            <code className="text-rose-300">LOAD LIVE</code> adds a Live shell,{' '}
+            <code className="text-sky-300">STRIP SHELL</code> removes a Live shell, and{' '}
+            <code className="text-purple-300">SPIN DRUM</code> shuffles remaining chambers.
+          </p>
+          <p>
+            <strong className="text-amber-300">3. Ring the Bell & Fire:</strong>{' '}
+            Click the Brass Bell, press{' '}
             <kbd className="px-1.5 py-0.5 rounded bg-black/50 border border-amber-700 text-xs">
               Enter
             </kbd>
-            ). Both you and your opponent place your cards onto the table at the exact
-            same time, modifying the shared 6-chamber cylinder!
-          </p>
-          <p>
-            <strong className="text-amber-300">3. Random Single-Gun Shot:</strong>{' '}
-            After both cards are placed, the single revolver randomly picks whether to
-            aim at <strong className="text-red-400">OPPONENT</strong> or{' '}
-            <strong className="text-sky-300">YOU</strong> and fires <strong>once</strong>{' '}
-            for the turn!
+            , or click <strong>LOCK IN &amp; FIRE</strong>. Both players reveal their cards,
+            apply their effects to the 6-chamber cylinder, and fire the current chamber!
           </p>
         </div>
       </dialog>

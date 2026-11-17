@@ -20,11 +20,16 @@ export interface ChamberFireContext {
   card: CardInstance | null;
 }
 
+export type CardEffectType =
+  | 'load_live'
+  | 'load_heavy'
+  | 'strip_live'
+  | 'spin_drum'
+  | 'peek_next'
+  | 'swap_aim';
+
 export interface ChamberFireResult {
   damageToTarget: number;
-  discardTargetCard?: boolean;
-  peekNextChamber?: boolean;
-  drawCardsForBoth?: number;
   logMessage: string;
 }
 
@@ -33,6 +38,7 @@ export interface CardDef {
   name: string;
   color: CardColor;
   category: CardCategory;
+  effectType: CardEffectType;
   shortTag: string;
   description: string;
   chamberEffectText: string;

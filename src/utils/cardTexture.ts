@@ -239,26 +239,50 @@ function drawCardIllustration(ctx: CanvasRenderingContext2D, card: CardDef, cx: 
     // LOAD LIVE: Chunky silver & wood snub-nose revolver
     drawRevolverIllustration(ctx, cx, cy);
   } else if (card.id === 'blue_silverblank') {
-    // STRIP SHELL: Brass & Silver 3D shells scattered & upright (matches image_0.png)
+    // STRIP SHELL: Brass & Silver 3D shells
     drawShellCylinder(ctx, cx - 22, cy - 34, 0.02, 0.88, true);
     drawShellCylinder(ctx, cx + 68, cy - 22, 0.04, 0.86, false);
     drawShellCylinder(ctx, cx - 64, cy + 44, -0.92, 0.85, false);
     drawShellCylinder(ctx, cx + 28, cy + 48, 0.96, 0.88, true);
-  } else if (card.id === 'purple_jinxpin') {
-    // PAD CYLINDER: 3D fluted silver 6-chamber cylinder (matches image_0.png)
+  } else if (card.id === 'purple_recoilcurse') {
+    // SPIN DRUM: 3D fluted silver 6-chamber cylinder
     drawCylinderIllustration(ctx, cx, cy);
   } else if (card.id === 'red_hollowpoint') {
-    // HEAVY SLUG: Two gleaming brass live shells + revolver
+    // HEAVY SLUG: Two gleaming brass live shells
     drawShellCylinder(ctx, cx - 48, cy, -0.18, 1.05, true);
     drawShellCylinder(ctx, cx + 48, cy + 6, 0.18, 1.05, true);
   } else if (card.id === 'blue_hairtrigger') {
-    // HAIR TRIGGER: Two gleaming silver blank shells
-    drawShellCylinder(ctx, cx - 45, cy, -0.15, 1.02, false);
-    drawShellCylinder(ctx, cx + 45, cy + 6, 0.15, 1.02, false);
-  } else {
-    // SPIN & RECOIL: Cylinder + Brass shell
+    // PEEK CHAMBER: Cylinder + Silver shell
     drawCylinderIllustration(ctx, cx - 12, cy);
-    drawShellCylinder(ctx, cx + 78, cy + 28, 0.45, 0.78, true);
+    drawShellCylinder(ctx, cx + 78, cy + 28, 0.45, 0.78, false);
+  } else {
+    // SWAP AIM: Opposing red & blue target arrows around center
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.lineWidth = 14;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Top arrow pointing right (red)
+    ctx.strokeStyle = '#f87171';
+    ctx.beginPath();
+    ctx.moveTo(-90, -45);
+    ctx.lineTo(75, -45);
+    ctx.lineTo(35, -85);
+    ctx.moveTo(75, -45);
+    ctx.lineTo(35, -5);
+    ctx.stroke();
+
+    // Bottom arrow pointing left (sky)
+    ctx.strokeStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.moveTo(90, 45);
+    ctx.lineTo(-75, 45);
+    ctx.lineTo(-35, 5);
+    ctx.moveTo(-75, 45);
+    ctx.lineTo(-35, 85);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 

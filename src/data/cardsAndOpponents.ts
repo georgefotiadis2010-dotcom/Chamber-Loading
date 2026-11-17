@@ -1,4 +1,5 @@
 import {
+  ActorSide,
   CardDef,
   CardId,
   CardInstance,
@@ -13,19 +14,18 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     name: 'LOAD LIVE',
     color: 'red',
     category: 'red',
-    shortTag: '+1 LIVE SHELL',
-    description:
-      'Loads a Live brass shell into the cylinder. Deals 1 DMG & forces target to discard 1.',
-    chamberEffectText: 'Load Live brass shell. Deals 1 DMG + target discards 1.',
-    accentColor: '#60a5fa',
-    borderColor: '#477ba2',
-    headerBgColor: '#477ba2',
-    artBgColor: '#2d3f50',
-    badgeText: 'LIVE • REVOLVER',
+    effectType: 'load_live',
+    shortTag: '+1 LIVE (1 DMG)',
+    description: 'Loads 1 Live brass shell (1 DMG) into a remaining chamber.',
+    chamberEffectText: 'Load 1 Live shell (1 DMG) into the cylinder.',
+    accentColor: '#f87171',
+    borderColor: '#b93829',
+    headerBgColor: '#b93829',
+    artBgColor: '#4c1d1a',
+    badgeText: 'LIVE • 1 DMG',
     onChamberFire: () => ({
       damageToTarget: 1,
-      discardTargetCard: true,
-      logMessage: 'LOAD LIVE FIRED! 1 Brass DMG + target discards 1 card!',
+      logMessage: 'BANG! LIVE SHELL FIRED — 1 DMG!',
     }),
   },
 
@@ -34,40 +34,40 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     name: 'STRIP SHELL',
     color: 'blue',
     category: 'blue',
-    shortTag: 'STRIP & PEEK',
+    effectType: 'strip_live',
+    shortTag: 'REMOVE 1 LIVE',
     description:
-      'Strips a Live shell into a Silver Blank (0 DMG) & peeks at the next chamber.',
-    chamberEffectText: 'Strips 1 Live shell to Blank (0 DMG) & peeks next chamber.',
-    accentColor: '#f59e0b',
-    borderColor: '#cf6726',
-    headerBgColor: '#cf6726',
-    artBgColor: '#4e2515',
-    badgeText: 'SHELL • STRIP',
+      'Removes 1 Live shell from the remaining chambers, turning it into a Blank.',
+    chamberEffectText: 'Remove 1 Live shell from the cylinder (to Blank).',
+    accentColor: '#60a5fa',
+    borderColor: '#3b6ca8',
+    headerBgColor: '#3b6ca8',
+    artBgColor: '#1e334f',
+    badgeText: 'SABOTAGE • STRIP',
     onChamberFire: () => ({
       damageToTarget: 0,
-      peekNextChamber: true,
-      logMessage: 'STRIP SHELL! Harmless click — peeking at next chamber!',
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
     }),
   },
 
-  purple_jinxpin: {
-    id: 'purple_jinxpin',
-    name: 'PAD CYLINDER',
+  purple_recoilcurse: {
+    id: 'purple_recoilcurse',
+    name: 'SPIN DRUM',
     color: 'purple',
     category: 'purple',
-    shortTag: 'PAD + DISCARD',
+    effectType: 'spin_drum',
+    shortTag: 'SHUFFLE DRUM',
     description:
-      'Pads the cylinder with a Blank shell (0 DMG) & forces the target to discard 1 card.',
-    chamberEffectText: 'Pad cylinder with Blank (0 DMG) + target discards 1 card.',
-    accentColor: '#84cc16',
-    borderColor: '#588448',
-    headerBgColor: '#588448',
-    artBgColor: '#2f3d27',
-    badgeText: 'CYLINDER • PAD',
+      'Spins and shuffles all remaining chambers in the cylinder before the shot.',
+    chamberEffectText: 'Spin & shuffle all remaining chambers.',
+    accentColor: '#c084fc',
+    borderColor: '#764594',
+    headerBgColor: '#764594',
+    artBgColor: '#382246',
+    badgeText: 'TRICK • SPIN',
     onChamberFire: () => ({
       damageToTarget: 0,
-      discardTargetCard: true,
-      logMessage: 'PAD CYLINDER! Blank click — target drops 1 card!',
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
     }),
   },
 
@@ -76,59 +76,61 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     name: 'HEAVY SLUG',
     color: 'red',
     category: 'red',
-    shortTag: '2 DMG SHELL',
+    effectType: 'load_heavy',
+    shortTag: '+1 HEAVY (2 DMG)',
     description:
-      'Heavy brass load. Loads a high-caliber Live shell that deals 2 DMG to the target.',
-    chamberEffectText: 'Heavy brass shell: Deals 2 DMG to whoever the gun targets.',
-    accentColor: '#f97316',
-    borderColor: '#b93829',
-    headerBgColor: '#b93829',
-    artBgColor: '#4c1d1a',
-    badgeText: 'LIVE • HEAVY',
+      'Loads 1 Heavy Live shell (2 DMG) into a remaining chamber.',
+    chamberEffectText: 'Load 1 Heavy Live shell (2 DMG) into cylinder.',
+    accentColor: '#fb923c',
+    borderColor: '#cf5b1d',
+    headerBgColor: '#cf5b1d',
+    artBgColor: '#4e2515',
+    badgeText: 'HEAVY • 2 DMG',
     onChamberFire: () => ({
       damageToTarget: 2,
-      logMessage: 'HEAVY SLUG FIRED! Massive 2 Brass DMG!',
+      logMessage: 'BOOM! HEAVY SLUG FIRED — 2 DMG!',
     }),
   },
 
   blue_hairtrigger: {
     id: 'blue_hairtrigger',
-    name: 'HAIR TRIGGER',
+    name: 'PEEK CHAMBER',
     color: 'blue',
     category: 'blue',
-    shortTag: 'BLANK • DRAW 1',
+    effectType: 'peek_next',
+    shortTag: 'PEEK NEXT SHOT',
     description:
-      'Polished silver blank (0 DMG). Both players draw 1 card when this chamber fires.',
-    chamberEffectText: 'Silver blank (0 DMG): Both players draw 1 card.',
+      'Peeks at the next chamber in the cylinder so you know if it is Live or Blank.',
+    chamberEffectText: 'Reveal whether the next chamber is Live or Blank.',
     accentColor: '#38bdf8',
-    borderColor: '#36639c',
-    headerBgColor: '#36639c',
-    artBgColor: '#223654',
-    badgeText: 'BLANK • SPEED',
+    borderColor: '#2d7a9c',
+    headerBgColor: '#2d7a9c',
+    artBgColor: '#193b4d',
+    badgeText: 'INTEL • PEEK',
     onChamberFire: () => ({
       damageToTarget: 0,
-      drawCardsForBoth: 1,
-      logMessage: 'HAIR TRIGGER! Safe click — both players draw 1 card!',
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
     }),
   },
 
-  purple_recoilcurse: {
-    id: 'purple_recoilcurse',
-    name: 'SPIN & RECOIL',
+  purple_jinxpin: {
+    id: 'purple_jinxpin',
+    name: 'SWAP AIM',
     color: 'purple',
     category: 'purple',
-    shortTag: 'SPIN CYLINDER',
+    effectType: 'swap_aim',
+    shortTag: 'FLIP TARGET',
     description:
-      'Spins and shuffles all remaining chambers in the cylinder before firing (0 DMG).',
-    chamberEffectText: 'Spins remaining chambers in the drum (0 DMG blank).',
-    accentColor: '#c084fc',
-    borderColor: '#764594',
-    headerBgColor: '#764594',
-    artBgColor: '#382246',
-    badgeText: 'TRICK • SPIN',
+      'Flips who the revolver is aimed at this turn (You ↔ Opponent).',
+    chamberEffectText: 'Flip who the gun shoots this turn.',
+    accentColor: '#a3e635',
+    borderColor: '#588448',
+    headerBgColor: '#588448',
+    artBgColor: '#2f3d27',
+    badgeText: 'TRICK • AIM',
     onChamberFire: () => ({
       damageToTarget: 0,
-      logMessage: 'SPIN & RECOIL! Cylinder spun — harmless metallic click!',
+      logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
     }),
   },
 };
@@ -136,36 +138,35 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
 export const ALL_CARD_IDS: CardId[] = [
   'red_crimsonslug',
   'blue_silverblank',
-  'purple_jinxpin',
+  'purple_recoilcurse',
   'red_hollowpoint',
   'blue_hairtrigger',
+  'purple_jinxpin',
+];
+
+// Simple, iconic 3-card starter hand: LOAD LIVE, STRIP SHELL, SPIN DRUM
+export const HERO_TRIO_IDS: CardId[] = [
+  'red_crimsonslug',
+  'blue_silverblank',
   'purple_recoilcurse',
 ];
 
-// Hero cards from image_0.png, image_1.png, image_2.png
-export const HERO_TRIO_IDS: CardId[] = [
-  'red_crimsonslug', // LOAD LIVE
-  'blue_silverblank', // STRIP SHELL
-  'purple_jinxpin', // PAD CYLINDER
-];
-
-// 18-card shared deck weighted toward the 3 iconic tabletop cards
+// Shared deck weighted toward core shell manipulation + tactical tricks
 export const SHARED_DECK_IDS: CardId[] = [
   'red_crimsonslug',
-  'blue_silverblank',
-  'purple_jinxpin',
+  'red_crimsonslug',
   'red_crimsonslug',
   'blue_silverblank',
-  'purple_jinxpin',
-  'red_crimsonslug',
   'blue_silverblank',
+  'blue_silverblank',
+  'purple_recoilcurse',
+  'purple_recoilcurse',
+  'red_hollowpoint',
+  'red_hollowpoint',
+  'blue_hairtrigger',
+  'blue_hairtrigger',
   'purple_jinxpin',
-  'red_hollowpoint',
-  'blue_hairtrigger',
-  'purple_recoilcurse',
-  'red_hollowpoint',
-  'blue_hairtrigger',
-  'purple_recoilcurse',
+  'purple_jinxpin',
 ];
 
 export const LADDER_OPPONENTS: OpponentDef[] = [
@@ -422,22 +423,50 @@ export function decideAiLoadSelection(aiHand: CardInstance[]): CardInstance[] {
 export function decideAiTurnAction(
   aiHand: CardInstance[],
   remainingCounts: { red: number; blue: number; purple: number; empty: number; remaining: number },
-  aiHp: number
+  aiHp: number,
+  currentTarget: ActorSide = 'player'
 ): CardInstance | null {
   if (aiHand.length === 0) return null;
 
-  const { red } = remainingCounts;
-  // If AI is low HP and there are live shells, prefer stripping/padding; otherwise load live or play tricks
-  if (aiHp <= 1 && red >= 2) {
-    return (
-      aiHand.find((c) => c.def.color === 'blue') ??
-      aiHand.find((c) => c.def.color === 'purple') ??
-      aiHand[0]
-    );
+  const { red, remaining } = remainingCounts;
+  const byEffect = (effect: CardInstance['def']['effectType']) =>
+    aiHand.find((c) => c.def.effectType === effect);
+
+  if (currentTarget === 'opponent') {
+    // Gun is aimed at the AI! AI wants to survive:
+    // 1. Flip aim onto player if possible
+    // 2. Strip a live shell if there are any live shells
+    // 3. Spin the drum if there are live shells
+    // 4. Otherwise pass (save cards) or peek
+    const swap = byEffect('swap_aim');
+    if (swap && (red > 0 || aiHp <= 2)) return swap;
+
+    if (red > 0) {
+      const strip = byEffect('strip_live');
+      if (strip) return strip;
+      const spin = byEffect('spin_drum');
+      if (spin && Math.random() < 0.7) return spin;
+    }
+
+    const peek = byEffect('peek_next');
+    if (peek && Math.random() < 0.45) return peek;
+
+    return null;
   }
-  return (
-    aiHand.find((c) => c.def.color === 'red') ??
-    aiHand.find((c) => c.def.color === 'purple') ??
-    aiHand[0]
-  );
+
+  // Gun is aimed at the PLAYER! AI wants a Live shell in the cylinder:
+  if (red < remaining) {
+    const heavy = byEffect('load_heavy');
+    if (heavy) return heavy;
+    const live = byEffect('load_live');
+    if (live) return live;
+  }
+
+  const peek = byEffect('peek_next');
+  if (peek && Math.random() < 0.5) return peek;
+
+  const spin = byEffect('spin_drum');
+  if (spin && red > 0 && Math.random() < 0.35) return spin;
+
+  return null;
 }
