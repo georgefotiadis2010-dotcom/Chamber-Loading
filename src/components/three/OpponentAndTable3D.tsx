@@ -167,10 +167,10 @@ export const OpponentBust3D: React.FC<OpponentBust3DProps> = ({
     const targetY = -0.82 + Math.sin(t * 2.1) * 0.025;
     const targetZ =
       recentlyDamaged
-        ? -2.95
+        ? -3.05
         : phase === 'RESOLVE_CHAMBER' || phase === 'RESOLVE_TRAP' || phase === 'FIRE_OPPONENT'
-        ? -2.35
-        : -2.52;
+        ? -2.48
+        : -2.65;
     const targetRotX = recentlyDamaged ? -0.25 : 0.08 + Math.sin(t * 1.4) * 0.018;
     const targetRotY = Math.sin(t * 0.85) * 0.05;
 
@@ -182,7 +182,7 @@ export const OpponentBust3D: React.FC<OpponentBust3DProps> = ({
   });
 
   return (
-    <group ref={bustRef} position={[0, -0.82, -2.52]} scale={0.66}>
+    <group ref={bustRef} position={[0, -0.82, -2.65]} scale={0.66}>
       {useBlenderAssets ? (
         <Suspense fallback={<ProceduralOpponentBust opponent={opponent} />}>
           <BlenderOpponentBust glbPath={opponent.glbPath} />
@@ -418,7 +418,7 @@ export const CardTableEnvironment3D: React.FC<{
           <meshStandardMaterial map={lockSlotTex} roughness={0.38} />
         </mesh>
         {/* Subtle neon pink/gold edge glow around LOCK IN SLOT */}
-        <mesh position={[0, -0.022, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[0, -0.019, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[0.82, 0.92]} />
           <meshBasicMaterial
             color={hasLockedCard ? '#fbbf24' : '#f43f5e'}

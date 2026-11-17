@@ -9,6 +9,9 @@ import {
   RotateCcw,
   Eye,
   Skull,
+  Shield,
+  Search,
+  User,
   ArrowRight,
   Settings,
   Plus,
@@ -236,9 +239,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
           <div className="flex items-center gap-2.5 rounded-2xl bg-gradient-to-b from-[#6b4226] to-[#472a17] border-[3px] border-[#a47449] px-3 py-2 shadow-[0_6px_16px_rgba(0,0,0,0.7)]">
             {/* Stylized Outlaw Player Portrait Badge */}
             <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-[#497aa1] to-[#264661] border-2 border-[#7ec3f7] flex items-center justify-center shadow-inner shrink-0">
-              <span className="text-xl select-none" aria-hidden="true">
-                🤠
-              </span>
+              <User className="w-6 h-6 text-[#d6ecff] drop-shadow" aria-hidden="true" />
             </div>
 
             <div className="flex flex-col">
@@ -410,9 +411,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
 
             {/* Stylized Outlaw Opponent Portrait Badge */}
             <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-[#9c3a2d] to-[#5e1f18] border-2 border-[#f28b7d] flex items-center justify-center shadow-inner shrink-0">
-              <span className="text-xl select-none" aria-hidden="true">
-                🦹
-              </span>
+              <Skull className="w-6 h-6 text-[#ffd6d1] drop-shadow" aria-hidden="true" />
             </div>
           </div>
 
@@ -473,8 +472,9 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
           )}
 
           {peekedSlotInfo && (
-            <div className="px-4 py-1 rounded-xl bg-sky-950/95 border-2 border-sky-400 text-sky-100 font-mono text-xs font-extrabold shadow-lg">
-              🔍 {peekedSlotInfo}
+            <div className="flex items-center gap-1.5 px-4 py-1 rounded-xl bg-sky-950/95 border-2 border-sky-400 text-sky-100 font-mono text-xs font-extrabold shadow-lg">
+              <Search className="w-3.5 h-3.5 text-sky-300 shrink-0" aria-hidden="true" />
+              <span>{peekedSlotInfo}</span>
             </div>
           )}
 
@@ -555,7 +555,14 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
               }`}
               title="Click or press [Space] to switch Aim Chip"
             >
-              AIM: {playerAim === 'opponent' ? '💀 OPPONENT' : '🛡️ SELF'}
+              <span className="inline-flex items-center gap-1.5">
+                {playerAim === 'opponent' ? (
+                  <Skull className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Shield className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                )}
+                <span>AIM: {playerAim === 'opponent' ? 'OPPONENT' : 'SELF'}</span>
+              </span>
             </button>
 
             <button

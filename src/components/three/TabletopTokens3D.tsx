@@ -204,14 +204,14 @@ export const AimToken3D: React.FC<AimToken3DProps> = ({
   }
 
   // Player's TWO distinct 3D weighted poker-chip tokens sitting near the revolver on the right:
-  // 1) AIM OPPONENT (red, skull icon) at [1.24, 0.06, 1.52]
-  // 2) AIM SELF (blue, shield icon) at [1.62, 0.06, 1.98]
+  // 1) AIM OPPONENT (red, skull icon) at [1.46, 0.065, 1.46]
+  // 2) AIM SELF (blue, shield icon) at [1.82, 0.065, 1.92]
   return (
     <group>
       <SingleAimChip3D
         chipMode="opponent"
         isSelected={aim === 'opponent'}
-        position={[1.24, 0.06, 1.52]}
+        position={[1.46, 0.065, 1.46]}
         scale={0.62}
         canInteract={canInteract}
         onSelect={() => handleChoose('opponent')}
@@ -219,7 +219,7 @@ export const AimToken3D: React.FC<AimToken3DProps> = ({
       <SingleAimChip3D
         chipMode="self"
         isSelected={aim === 'self'}
-        position={[1.62, 0.06, 1.98]}
+        position={[1.82, 0.065, 1.92]}
         scale={0.62}
         canInteract={canInteract}
         onSelect={() => handleChoose('self')}
@@ -344,7 +344,7 @@ export const BrassBell3D: React.FC<BrassBell3DProps> = ({
       )}
 
       {/* Printed "LOCK IN" label directly below the bell on the wood plank */}
-      <mesh position={[0, 0.012, 0.38]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, 0.014, 0.38]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[0.74, 0.19]} />
         <meshBasicMaterial map={lockInLabelTex} transparent />
       </mesh>

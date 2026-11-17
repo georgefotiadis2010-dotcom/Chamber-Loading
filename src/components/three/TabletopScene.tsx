@@ -55,13 +55,13 @@ const FirstPersonCameraRig: React.FC<FirstPersonCameraRigProps> = ({
       baseLook.set(0, 0.45, -0.45);
     }
 
-    // Subtle mouse-driven camera parallax: look slightly down at your hand or up at the opponent
-    basePos.x += pointerX * 0.28;
-    basePos.y += pointerY * 0.18;
+    // Subtle mouse-driven camera parallax: gentle look without shifting cards out from under cursor
+    basePos.x += pointerX * 0.14;
+    basePos.y += pointerY * 0.09;
 
-    baseLook.x += pointerX * 0.48;
-    baseLook.y += pointerY * 0.45;
-    baseLook.z -= pointerY * 0.35;
+    baseLook.x += pointerX * 0.24;
+    baseLook.y += pointerY * 0.22;
+    baseLook.z -= pointerY * 0.18;
 
     if (shakeIntensity > 0.01) {
       basePos.x += (Math.random() - 0.5) * shakeIntensity * 0.55;

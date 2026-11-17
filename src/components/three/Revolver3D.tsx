@@ -181,7 +181,7 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
   // Exact tabletop positions matching image_0.png, image_1.png, image_2.png:
   // Player's gun lies flat on the right side of the near plank; Opponent's gun lies on the far left plank.
   const restPos = useMemo(
-    () => (isPlayer ? new THREE.Vector3(2.12, 0.15, 1.12) : new THREE.Vector3(-1.72, 0.13, -1.24)),
+    () => (isPlayer ? new THREE.Vector3(2.12, 0.26, 1.12) : new THREE.Vector3(-1.72, 0.20, -1.24)),
     [isPlayer]
   );
 
@@ -276,8 +276,8 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
   // Tray positions matching image_0.png, image_1.png, image_2.png:
   // Player's tray sits right above the revolver on the right; Opponent's tray sits beside their revolver on the left.
   const trayPos: [number, number, number] = isPlayer
-    ? [2.44, 0.015, 0.34]
-    : [-2.18, 0.015, -1.04];
+    ? [2.44, 0.02, 0.34]
+    : [-2.18, 0.02, -1.04];
   const trayRotY = isPlayer ? -0.24 : 0.18;
 
   const traySlotOffsets: [number, number][] = [
