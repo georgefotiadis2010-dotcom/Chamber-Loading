@@ -109,6 +109,7 @@ interface HudAndModalsProps {
   onSelectPlayerCard: (card: CardInstance) => void;
   onHoverCard: (card: CardInstance | null) => void;
   onRingBell: () => void;
+  onContinueTurn: () => void;
   onDraftCard: (cardId: CardId) => void;
   onToggleChamberCounts: () => void;
   onAdvanceNextStage: () => void;
@@ -146,6 +147,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   useBlenderAssets,
   stats,
   onRingBell,
+  onContinueTurn,
   onDraftCard,
   onToggleChamberCounts,
   onAdvanceNextStage,
@@ -238,15 +240,22 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
         <div className="pointer-events-none flex flex-col items-center gap-1 max-w-lg text-center">
           <div
             className={`px-4 py-1.5 rounded-2xl bg-stone-950/85 border-2 backdrop-blur-xs shadow-xl ${
-              phase === 'PLAYER_SELECT'
+              phase === 'PICK_TARGET' ||
+              phase === 'RESOLVE_CHAMBER' ||
+              phase === 'FIRE_PLAYER' ||
+              phase === 'FIRE_OPPONENT' ||
+              phase === 'TURN_RESULT'
                 ? isAimedAtOpponent
-                  ? 'border-emerald-400/70'
+                  ? 'border-emerald-400/75'
                   : 'border-rose-500/80'
                 : 'border-amber-400/70'
             }`}
           >
             <div className="flex items-center justify-center gap-1.5 text-xs sm:text-sm font-black tracking-wide text-amber-50 uppercase">
-              {phase === 'PLAYER_SELECT' && (
+              {(phase === 'PICK_TARGET' ||
+                phase === 'RESOLVE_CHAMBER' ||
+                phase === 'FIRE_PLAYER' ||
+                phase === 'FIRE_OPPONENT') && (
                 <Crosshair
                   className={`w-3.5 h-3.5 shrink-0 ${
                     isAimedAtOpponent ? 'text-emerald-400' : 'text-rose-400'
@@ -358,6 +367,20 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
                   ? `LOCK IN ${selectedCard.def.name} & FIRE`
                   : 'PASS & PULL TRIGGER'}
               </span>
+            </button>
+          )}
+
+          {phase === 'TURN_RESULT' && (
+            <button
+              type="button"
+              onClick={() => {
+                soundEngine.playCardHover();
+                onContinueTurn();
+              }}
+              className="pointer-events-auto flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-b from-emerald-400 to-emerald-600 hover:from-emerald-300 hover:to-emerald-500 border-2 border-emerald-200 text-stone-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl cursor-pointer transition-transform active:scale-95"
+            >
+              <span>CONTINUE</span>
+              <ArrowRight className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -613,26 +636,26 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
 
         <div className="space-y-2.5 text-sm text-amber-100/90 leading-relaxed max-h-[42vh] overflow-y-auto pr-1">
           <p>
-            <strong className="text-amber-300">1. Check Who Is in the Crosshairs:</strong>{' '}
-            The revolver alternates aim each turn —{' '}
-            <strong className="text-emerald-300">YOUR SHOT (at Opponent)</strong> then{' '}
-            <strong className="text-rose-400">ENEMY SHOT (at You)</strong>.
+            <strong className="text-amber-300">1. Bet on the 50/50 Spin:</strong>{' '}
+            Both you and your opponent simultaneously play a card (or pass) before the
+            gun picks a target. Load live shells if you bet it lands on them, or strip/spin
+            if you think it lands on you!
           </p>
           <p>
-            <strong className="text-amber-300">2. Play a Card (Optional):</strong>{' '}
-            Click a card in your hand to lock it in (or pass to save cards):{' '}
-            <code className="text-rose-300">LOAD LIVE</code> adds a Live shell,{' '}
-            <code className="text-sky-300">STRIP SHELL</code> removes a Live shell, and{' '}
-            <code className="text-purple-300">SPIN DRUM</code> shuffles remaining chambers.
+            <strong className="text-amber-300">2. Cards Lift &amp; Revolver Spins 50/50:</strong>{' '}
+            Both cards lift in the center to reveal their cylinder effects, then the
+            revolver spins on the table to randomly pick <strong className="text-emerald-300">OPPONENT</strong> or{' '}
+            <strong className="text-rose-400">YOU</strong> (unless redirected by{' '}
+            <code className="text-lime-300">DEFLECT</code>).
           </p>
           <p>
-            <strong className="text-amber-300">3. Ring the Bell & Fire:</strong>{' '}
-            Click the Brass Bell, press{' '}
+            <strong className="text-amber-300">3. Drum Aligns, Fires &amp; Continue:</strong>{' '}
+            The revolver lifts to aim, slowly rotates the next chamber into the barrel,
+            and fires. Review the result, then click <strong>CONTINUE</strong> (or press{' '}
             <kbd className="px-1.5 py-0.5 rounded bg-black/50 border border-amber-700 text-xs">
-              Enter
+              Space
             </kbd>
-            , or click <strong>LOCK IN &amp; FIRE</strong>. Both players reveal their cards,
-            apply their effects to the 6-chamber cylinder, and fire the current chamber!
+            ) to start the next turn.
           </p>
         </div>
       </dialog>

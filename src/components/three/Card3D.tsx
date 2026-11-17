@@ -77,17 +77,19 @@ export const Card3D: React.FC<Card3DProps> = ({
     [isPlayer, handIndex]
   );
 
-  // Mid-table slot cards flip face-up together during REVEAL_CARDS / RESOLVE_CHAMBER!
-  const isFaceDown =
-    isPlayedSlot &&
-    !isSlotRevealed &&
-    phase !== 'REVEAL_CARDS' &&
-    phase !== 'RESOLVE_CHAMBER' &&
-    phase !== 'FIRE_PLAYER' &&
-    phase !== 'FIRE_OPPONENT';
+  // Mid-table slot cards flip face-up together during REVEAL_CARDS and stay face-up through TURN_RESULT
+  const isPlayedRevealedPhase =
+    phase === 'REVEAL_CARDS' ||
+    phase === 'PICK_TARGET' ||
+    phase === 'RESOLVE_CHAMBER' ||
+    phase === 'FIRE_PLAYER' ||
+    phase === 'FIRE_OPPONENT' ||
+    phase === 'TURN_RESULT';
 
-  const isRevealingInCenter =
-    isPlayedSlot && (isSlotRevealed || phase === 'REVEAL_CARDS' || phase === 'RESOLVE_CHAMBER');
+  const isFaceDown = isPlayedSlot && !isSlotRevealed && !isPlayedRevealedPhase;
+
+  const isLiftedReveal = isPlayedSlot && phase === 'REVEAL_CARDS';
+  const isSettledReveal = isPlayedSlot && !isLiftedReveal && (isSlotRevealed || isPlayedRevealedPhase);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -104,12 +106,20 @@ export const Card3D: React.FC<Card3DProps> = ({
     let targetRotZ = isFaceDown ? Math.PI : 0;
     let targetScale = isPlayedSlot ? 0.68 : isPlayer ? 0.72 : 0.54;
 
-    if (isRevealingInCenter) {
-      targetPos.set(isPlayer ? -0.42 : 0.42, 0.2, isPlayer ? 0.42 : -0.48);
-      targetRotX = isPlayer ? 0.22 : -0.15;
+    if (isLiftedReveal) {
+      // Slide to middle and lift/tilt toward the camera so both cards are clearly readable
+      targetPos.set(isPlayer ? -0.46 : 0.46, 0.68, 0.45);
+      targetRotX = 0.42;
       targetRotY = 0;
       targetRotZ = 0;
-      targetScale = 0.86;
+      targetScale = 0.88;
+    } else if (isSettledReveal) {
+      // Lower neatly onto the mid-table slots so the revolver has clear space to spin & aim
+      targetPos.set(isPlayer ? -0.48 : 0.48, 0.08, isPlayer ? 0.52 : -0.62);
+      targetRotX = 0;
+      targetRotY = 0;
+      targetRotZ = 0;
+      targetScale = 0.64;
     } else if (isSelectedLocked && !isPlayedSlot) {
       targetPos.copy(lockPos);
       targetRotX = 0;

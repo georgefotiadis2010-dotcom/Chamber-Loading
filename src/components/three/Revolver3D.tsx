@@ -1,4 +1,4 @@
-import React, { Suspense, useMemo, useRef } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RoundedBox, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
@@ -175,21 +175,49 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
   const cylinderSpinRef = useRef<THREE.Group>(null);
   const manualSpinRef = useRef(0);
   const manualPopOutRef = useRef(false);
+  const rouletteSpinRef = useRef({ elapsed: 0, startY: 1.28, endY: 0.08 });
+  const prevPhaseRef = useRef<TurnPhase>(phase);
 
   const isPlayer = owner === 'player';
 
-  // Exact tabletop positions matching image_0.png, image_1.png, image_2.png:
+  // Exact tabletop positions:
   // Player's gun lies flat on the right side of the near plank; Opponent's gun lies on the far left plank.
   const restPos = useMemo(
     () => (isPlayer ? new THREE.Vector3(2.12, 0.26, 1.12) : new THREE.Vector3(-1.72, 0.20, -1.24)),
     [isPlayer]
   );
 
+  // Trigger 50/50 table spin when entering PICK_TARGET, and slow drum rotation when entering RESOLVE_CHAMBER
+  useEffect(() => {
+    if (prevPhaseRef.current !== phase) {
+      if (phase === 'PICK_TARGET' && gunGroupRef.current) {
+        const startY = gunGroupRef.current.rotation.y;
+        const targetEnd = aim === 'opponent' ? 0.08 : Math.PI - 0.15;
+        // Spin 2 full turns + land on target angle
+        const twoTurns = Math.PI * 4;
+        rouletteSpinRef.current = {
+          elapsed: 0,
+          startY,
+          endY: startY + twoTurns + ((targetEnd - startY) % (Math.PI * 2)),
+        };
+      } else if (phase === 'RESOLVE_CHAMBER' && cylinderSpinRef.current) {
+        // Offset drum behind target chamber so it visibly rotates into alignment
+        const targetAngle = Math.PI / 2 - activeChamberIndex * (Math.PI / 3);
+        cylinderSpinRef.current.rotation.z = targetAngle - Math.PI * 0.65;
+      }
+      prevPhaseRef.current = phase;
+    }
+  }, [phase, aim, activeChamberIndex]);
+
   const isCylinderOpen =
     phase === 'RELOAD_ROUND' ||
-    phase === 'RESOLVE_CHAMBER' ||
+    phase === 'SPIN_CYLINDERS' ||
     manualPopOutRef.current;
   const isSpinning = phase === 'SPIN_CYLINDERS' || manualSpinRef.current > 0.05;
+  const isAimedPose =
+    phase === 'RESOLVE_CHAMBER' ||
+    phase === 'TURN_RESULT' ||
+    isFiringNow;
 
   useFrame((_, delta) => {
     if (!gunGroupRef.current || !cylinderPivotRef.current || !cylinderSpinRef.current) return;
@@ -199,7 +227,7 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
     }
 
     const targetPos = restPos.clone();
-    // Lying flat on its left side so the barrel points left-upward and the brown wooden grip curves down-right!
+    // Lying flat on its left side
     let targetRotX = isPlayer ? -0.05 : 0.05;
     let targetRotY = isPlayer ? 1.28 : -1.82;
     let targetRotZ = isPlayer ? -Math.PI * 0.46 : Math.PI * 0.46;
@@ -210,8 +238,25 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
       targetRotX = 0.16;
       targetRotY = isPlayer ? 0.85 : -2.15;
       targetRotZ = isPlayer ? 0.35 : -0.35;
-    } else if (isFiringNow) {
-      targetPos.set(isPlayer ? 0.42 : -0.42, 1.08, isPlayer ? 1.15 : -1.05);
+    } else if (phase === 'PICK_TARGET') {
+      // Center of table, lying flat and spinning 50/50 like a roulette pointer
+      targetPos.set(0, 0.34, 0.02);
+      targetRotX = 0;
+      targetRotZ = -Math.PI * 0.46;
+      rouletteSpinRef.current.elapsed = Math.min(
+        1.45,
+        rouletteSpinRef.current.elapsed + delta
+      );
+      const t = rouletteSpinRef.current.elapsed / 1.45;
+      // Cubic ease-out deceleration
+      const eased = 1 - Math.pow(1 - t, 3);
+      targetRotY = THREE.MathUtils.lerp(
+        rouletteSpinRef.current.startY,
+        rouletteSpinRef.current.endY,
+        eased
+      );
+    } else if (isAimedPose) {
+      targetPos.set(isPlayer ? 0.12 : -0.12, 1.06, isPlayer ? 0.35 : -0.45);
 
       if (isPlayer) {
         if (aim === 'opponent') {
@@ -243,7 +288,11 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
     const lerpSpeed = Math.min(1, delta * 6.5);
     gunGroupRef.current.position.lerp(targetPos, lerpSpeed);
     gunGroupRef.current.rotation.x = THREE.MathUtils.lerp(gunGroupRef.current.rotation.x, targetRotX, lerpSpeed);
-    gunGroupRef.current.rotation.y = THREE.MathUtils.lerp(gunGroupRef.current.rotation.y, targetRotY, lerpSpeed);
+    if (phase === 'PICK_TARGET') {
+      gunGroupRef.current.rotation.y = targetRotY;
+    } else {
+      gunGroupRef.current.rotation.y = THREE.MathUtils.lerp(gunGroupRef.current.rotation.y, targetRotY, lerpSpeed);
+    }
     gunGroupRef.current.rotation.z = THREE.MathUtils.lerp(gunGroupRef.current.rotation.z, targetRotZ, lerpSpeed);
 
     // Cylinder physical pop-out / swing-out animation
@@ -265,16 +314,17 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
       cylinderSpinRef.current.rotation.z += vel * delta;
     } else {
       const targetAngle = Math.PI / 2 - activeChamberIndex * (Math.PI / 3);
+      // Slow dramatic rotation during RESOLVE_CHAMBER so you see the drum align into the barrel
+      const drumSpeed = phase === 'RESOLVE_CHAMBER' ? 2.2 : 8.0;
       cylinderSpinRef.current.rotation.z = THREE.MathUtils.lerp(
         cylinderSpinRef.current.rotation.z,
         targetAngle,
-        Math.min(1, delta * 8)
+        Math.min(1, delta * drumSpeed)
       );
     }
   });
 
-  // Tray positions matching image_0.png, image_1.png, image_2.png:
-  // Player's tray sits right above the revolver on the right; Opponent's tray sits beside their revolver on the left.
+  // Tray positions:
   const trayPos: [number, number, number] = isPlayer
     ? [2.44, 0.02, 0.34]
     : [-2.18, 0.02, -1.04];
@@ -289,13 +339,9 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
     [0.38, 0.18],
   ];
 
-  // Ensure the tray visually displays 3 brass (live) shells on the left and 3 silver (blank) shells on the right
-  // while reflecting spent chambers
+  // Mirror actual remaining Live/Heavy vs Blank shells in the cylinder
   const trayShells: ShellType[] = useMemo(() => {
-    return [0, 1, 2, 3, 4, 5].map((i) => {
-      if (cylinder[i] === 'empty') return 'empty';
-      return i < 3 ? 'live' : 'blank';
-    });
+    return cylinder.map((slot) => (slot === 'empty' ? 'empty' : slot));
   }, [cylinder]);
 
   const handleInspectRevolver = (e: { stopPropagation: () => void }) => {

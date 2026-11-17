@@ -1,5 +1,4 @@
 import {
-  ActorSide,
   CardDef,
   CardId,
   CardInstance,
@@ -115,19 +114,19 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
 
   purple_jinxpin: {
     id: 'purple_jinxpin',
-    name: 'SWAP AIM',
+    name: 'DEFLECT',
     color: 'purple',
     category: 'purple',
-    effectType: 'swap_aim',
-    shortTag: 'FLIP TARGET',
+    effectType: 'deflect',
+    shortTag: 'REDIRECT SHOT',
     description:
-      'Flips who the revolver is aimed at this turn (You ↔ Opponent).',
-    chamberEffectText: 'Flip who the gun shoots this turn.',
+      'If the 50/50 spin lands on you this turn, redirects the shot to the other player.',
+    chamberEffectText: 'If targeted this turn, redirect shot to opponent.',
     accentColor: '#a3e635',
     borderColor: '#588448',
     headerBgColor: '#588448',
     artBgColor: '#2f3d27',
-    badgeText: 'TRICK • AIM',
+    badgeText: 'TRICK • DEFLECT',
     onChamberFire: () => ({
       damageToTarget: 0,
       logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
@@ -423,8 +422,7 @@ export function decideAiLoadSelection(aiHand: CardInstance[]): CardInstance[] {
 export function decideAiTurnAction(
   aiHand: CardInstance[],
   remainingCounts: { red: number; blue: number; purple: number; empty: number; remaining: number },
-  aiHp: number,
-  currentTarget: ActorSide = 'player'
+  aiHp: number
 ): CardInstance | null {
   if (aiHand.length === 0) return null;
 
@@ -432,41 +430,38 @@ export function decideAiTurnAction(
   const byEffect = (effect: CardInstance['def']['effectType']) =>
     aiHand.find((c) => c.def.effectType === effect);
 
-  if (currentTarget === 'opponent') {
-    // Gun is aimed at the AI! AI wants to survive:
-    // 1. Flip aim onto player if possible
-    // 2. Strip a live shell if there are any live shells
-    // 3. Spin the drum if there are live shells
-    // 4. Otherwise pass (save cards) or peek
-    const swap = byEffect('swap_aim');
-    if (swap && (red > 0 || aiHp <= 2)) return swap;
-
-    if (red > 0) {
-      const strip = byEffect('strip_live');
-      if (strip) return strip;
-      const spin = byEffect('spin_drum');
-      if (spin && Math.random() < 0.7) return spin;
-    }
-
-    const peek = byEffect('peek_next');
-    if (peek && Math.random() < 0.45) return peek;
-
-    return null;
+  // 50/50 guessing game:
+  // If there are no live shells yet, AI wants to load one (or peek)
+  if (red === 0 && remaining > 0) {
+    return (
+      byEffect('load_heavy') ??
+      byEffect('load_live') ??
+      byEffect('peek_next') ??
+      null
+    );
   }
 
-  // Gun is aimed at the PLAYER! AI wants a Live shell in the cylinder:
-  if (red < remaining) {
-    const heavy = byEffect('load_heavy');
-    if (heavy) return heavy;
-    const live = byEffect('load_live');
-    if (live) return live;
+  // If AI is low HP or drum is dangerous (2+ live shells), AI prefers defense/deflect
+  if ((aiHp <= 1 || red >= 2) && red > 0) {
+    return (
+      byEffect('deflect') ??
+      byEffect('strip_live') ??
+      (Math.random() < 0.65 ? byEffect('spin_drum') : undefined) ??
+      null
+    );
   }
 
-  const peek = byEffect('peek_next');
-  if (peek && Math.random() < 0.5) return peek;
-
-  const spin = byEffect('spin_drum');
-  if (spin && red > 0 && Math.random() < 0.35) return spin;
+  // Otherwise mix between loading live, deflecting, peeking, or passing
+  const roll = Math.random();
+  if (roll < 0.4 && red < remaining) {
+    return byEffect('load_live') ?? byEffect('load_heavy') ?? null;
+  }
+  if (roll < 0.65) {
+    return byEffect('deflect') ?? byEffect('peek_next') ?? null;
+  }
+  if (roll < 0.8) {
+    return byEffect('strip_live') ?? byEffect('spin_drum') ?? null;
+  }
 
   return null;
 }

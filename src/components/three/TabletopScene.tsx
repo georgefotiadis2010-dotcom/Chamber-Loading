@@ -46,12 +46,17 @@ const FirstPersonCameraRig: React.FC<FirstPersonCameraRigProps> = ({
       baseLook.set(0, 0.05, 1.35);
     } else if (
       phase === 'SPIN_CYLINDERS' ||
+      phase === 'PICK_TARGET' ||
       phase === 'RESOLVE_CHAMBER' ||
       phase === 'REVEAL_CARDS'
     ) {
       basePos.set(0, 3.18, 4.35);
       baseLook.set(0, 0.25, -0.15);
-    } else if (phase === 'FIRE_PLAYER' || phase === 'FIRE_OPPONENT') {
+    } else if (
+      phase === 'FIRE_PLAYER' ||
+      phase === 'FIRE_OPPONENT' ||
+      phase === 'TURN_RESULT'
+    ) {
       basePos.set(0, 2.95, 4.45);
       baseLook.set(0, 0.45, -0.45);
     }
@@ -165,9 +170,11 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
   const isFiringNow = phase === 'FIRE_PLAYER' || phase === 'FIRE_OPPONENT';
   const arePlayedCardsRevealed =
     phase === 'REVEAL_CARDS' ||
+    phase === 'PICK_TARGET' ||
     phase === 'RESOLVE_CHAMBER' ||
     phase === 'FIRE_PLAYER' ||
-    phase === 'FIRE_OPPONENT';
+    phase === 'FIRE_OPPONENT' ||
+    phase === 'TURN_RESULT';
 
   return (
     <>

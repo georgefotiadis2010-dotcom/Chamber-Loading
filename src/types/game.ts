@@ -26,7 +26,7 @@ export type CardEffectType =
   | 'strip_live'
   | 'spin_drum'
   | 'peek_next'
-  | 'swap_aim';
+  | 'deflect';
 
 export interface ChamberFireResult {
   damageToTarget: number;
@@ -67,9 +67,11 @@ export type TurnPhase =
   | 'SPIN_CYLINDERS'
   | 'PLAYER_SELECT'
   | 'REVEAL_CARDS'
+  | 'PICK_TARGET'
   | 'RESOLVE_CHAMBER'
   | 'FIRE_PLAYER'
   | 'FIRE_OPPONENT'
+  | 'TURN_RESULT'
   | 'RELOAD_ROUND'
   | 'POST_MATCH_DRAFT'
   | 'GAME_OVER'

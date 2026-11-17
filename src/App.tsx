@@ -72,15 +72,25 @@ export const App: React.FC = () => {
   const [phase, setPhase] = useState<TurnPhase>('PLAYER_SELECT');
 
   const [statusBanner, setStatusBanner] = useState<string>(
-    'YOUR SHOT — AIMED AT THE COUNTER'
+    '50/50 BET — CHOOSE YOUR CARD'
   );
   const [subBanner, setSubBanner] = useState<string>(
-    '1. Pick a card (optional)  →  2. Ring the Bell or click Lock In to fire Chamber #1/6'
+    'Pick a card (or pass) & ring the Bell. Gun picks 50/50 after cards reveal!'
   );
   const [opponentSpeech, setOpponentSpeech] = useState<string>(
     LADDER_OPPONENTS[0].tauntIntro
   );
   const [lastTurnSummary, setLastTurnSummary] = useState<string | null>(null);
+  const pendingContinueRef = useRef<{
+    pCard: CardInstance | null;
+    oCard: CardInstance | null;
+    chamberIdx: number;
+    workingPHand: CardInstance[];
+    workingOHand: CardInstance[];
+    workingPHp: number;
+    workingOHp: number;
+    currentRound: number;
+  } | null>(null);
 
   // Shared 6-Chamber Cylinder (Starts with 1 Live + 5 Blanks)
   const [cylinderSlots, setCylinderSlots] = useState<ChamberSlot[]>(() =>
@@ -160,8 +170,7 @@ export const App: React.FC = () => {
     (
       nextRound: number,
       currentPHand: CardInstance[],
-      currentOHand: CardInstance[],
-      nextTarget: ActorSide
+      currentOHand: CardInstance[]
     ) => {
       const pNeeded = Math.max(0, 3 - currentPHand.length);
       const oNeeded = Math.max(0, 4 - currentOHand.length);
@@ -188,7 +197,6 @@ export const App: React.FC = () => {
       setPlayerHand(nextPHand);
       setOpponentHand(nextOHand);
       setRoundNumber(nextRound);
-      setTurnTarget(nextTarget);
       setPhase('SPIN_CYLINDERS');
       soundEngine.playCylinderSpin();
       setStatusBanner(`ROUND ${nextRound} — SPINNING 6-CHAMBER CYLINDER`);
@@ -198,23 +206,20 @@ export const App: React.FC = () => {
 
       schedule(() => {
         setPhase('PLAYER_SELECT');
-        setStatusBanner(
-          nextTarget === 'opponent'
-            ? `YOUR SHOT — AIMED AT ${opponent.name}`
-            : `ENEMY SHOT — AIMED AT YOU`
-        );
+        setStatusBanner('50/50 BET — CHOOSE YOUR CARD');
         setSubBanner(
-          '1. Pick a card (optional)  →  2. Ring the Bell or click Lock In to fire Chamber #1/6'
+          'Pick a card (or pass) & ring the Bell. Gun picks 50/50 after cards reveal!'
         );
       }, 1600);
     },
-    [drawFromSharedDeck, opponent.name]
+    [drawFromSharedDeck]
   );
 
   // Start a fresh 1v1 Match against a Ladder Opponent
   const startStage = useCallback(
     (targetStageIdx: number) => {
       clearAllTimeouts();
+      pendingContinueRef.current = null;
       const targetOpp = LADDER_OPPONENTS[targetStageIdx];
       sharedDeckRef.current = createShuffledSharedDeck();
       discardPileRef.current = [];
@@ -250,30 +255,31 @@ export const App: React.FC = () => {
       ]);
       setRoundNumber(1);
       setPhase('PLAYER_SELECT');
-      setStatusBanner(`YOUR SHOT — AIMED AT ${targetOpp.name}`);
+      setStatusBanner('50/50 BET — CHOOSE YOUR CARD');
       setSubBanner(
-        '1. Pick a card (optional)  →  2. Ring the Bell or click Lock In to fire Chamber #1/6'
+        'Pick a card (or pass) & ring the Bell. Gun picks 50/50 after cards reveal!'
       );
     },
     [syncDeckCounts]
   );
 
-  // Apply both simultaneously placed cards to the shared 6-chamber cylinder & turn target
+  // Apply both simultaneously placed cards to the shared 6-chamber cylinder
   const applySimultaneousCardsToCylinder = useCallback(
     (
       pCard: CardInstance | null,
       oCard: CardInstance | null,
       slots: ChamberSlot[],
-      chamberIdx: number,
-      initialTarget: ActorSide
+      chamberIdx: number
     ): {
       slots: ChamberSlot[];
-      target: ActorSide;
+      playerDeflected: boolean;
+      opponentDeflected: boolean;
       peekedInfo: string | null;
       actionSummary: string;
     } => {
       let updated = slots.map((s) => ({ ...s }));
-      let target: ActorSide = initialTarget;
+      let playerDeflected = false;
+      let opponentDeflected = false;
       let peekedInfo: string | null = null;
       const summaries: string[] = [];
 
@@ -393,10 +399,11 @@ export const App: React.FC = () => {
             break;
           }
 
-          case 'swap_aim': {
-            target = target === 'opponent' ? 'player' : 'opponent';
+          case 'deflect': {
+            if (actor === 'YOU') playerDeflected = true;
+            else opponentDeflected = true;
             soundEngine.playShellClink(1.1);
-            summaries.push(`${actor}: SWAP AIM (Target Flipped!)`);
+            summaries.push(`${actor}: DEFLECT (Protected!)`);
             break;
           }
         }
@@ -404,7 +411,8 @@ export const App: React.FC = () => {
 
       return {
         slots: updated,
-        target,
+        playerDeflected,
+        opponentDeflected,
         peekedInfo,
         actionSummary: summaries.join('  ·  '),
       };
@@ -412,13 +420,89 @@ export const App: React.FC = () => {
     []
   );
 
+  // Advance from TURN_RESULT when player clicks CONTINUE
+  const handleContinueTurn = useCallback(() => {
+    if (phase !== 'TURN_RESULT' || !pendingContinueRef.current) return;
+    const {
+      pCard,
+      oCard,
+      chamberIdx,
+      workingPHand,
+      workingOHand,
+      workingPHp,
+      workingOHp,
+      currentRound,
+    } = pendingContinueRef.current;
+    pendingContinueRef.current = null;
+
+    if (pCard) discardPileRef.current.push(pCard);
+    if (oCard) discardPileRef.current.push(oCard);
+    syncDeckCounts();
+    setPlayerPlayedCard(null);
+    setOpponentPlayedCard(null);
+
+    if (workingOHp <= 0) {
+      soundEngine.playVictoryFanfare();
+      setPhase('VICTORY');
+      setStatusBanner(`${opponent.name} ELIMINATED — YOU WIN THE MATCH!`);
+      setSubBanner('All opponent hearts depleted.');
+      return;
+    }
+    if (workingPHp <= 0) {
+      soundEngine.playDefeatToll();
+      setPhase('GAME_OVER');
+      setStatusBanner('YOU FELL AT THE TABLE');
+      setSubBanner('All 3 of your hearts were depleted.');
+      return;
+    }
+
+    const nextIdx = chamberIdx + 1;
+
+    if (nextIdx >= 6) {
+      setPhase('RELOAD_ROUND');
+      setStatusBanner('ALL 6 CHAMBERS SPENT — RELOADING CYLINDER');
+      setSubBanner('Replenishing hands & loading fresh shells...');
+      schedule(() => {
+        beginNewRound(currentRound + 1, workingPHand, workingOHand);
+      }, 1600);
+      return;
+    }
+
+    let nextPHand = [...workingPHand];
+    let nextOHand = [...workingOHand];
+    if (nextPHand.length < 4) {
+      const needed = nextPHand.length === 0 ? 2 : 1;
+      nextPHand = [...nextPHand, ...drawFromSharedDeck(needed)];
+      setPlayerHand(nextPHand);
+    }
+    if (nextOHand.length < 4) {
+      const needed = nextOHand.length === 0 ? 2 : 1;
+      nextOHand = [...nextOHand, ...drawFromSharedDeck(needed)];
+      setOpponentHand(nextOHand);
+    }
+
+    setCurrentChamberIdx(nextIdx);
+    setTurnNumber((t) => t + 1);
+    setStats((s) => ({ ...s, turnsPlayed: s.turnsPlayed + 1 }));
+    setSelectedCard(null);
+    setPhase('PLAYER_SELECT');
+    setStatusBanner('50/50 BET — CHOOSE YOUR CARD');
+    setSubBanner(
+      `Chamber #${nextIdx + 1}/6 ready. Pick a card (or pass) & ring the Bell!`
+    );
+  }, [phase, opponent.name, syncDeckCounts, beginNewRound, drawFromSharedDeck]);
+
   // Full Simultaneous Turn Resolution:
-  // 1. Reveal both placed cards & their cylinder effects -> 2. Aim & Fire current chamber -> 3. Advance
+  // 1. REVEAL_CARDS (lift cards & show effects)
+  // 2. PICK_TARGET (50/50 revolver spin on table + Deflect check)
+  // 3. RESOLVE_CHAMBER (lift & aim gun, slowly rotate drum into barrel)
+  // 4. FIRE -> TURN_RESULT (pause until CONTINUE)
   const executeSimultaneousTurn = useCallback(
     (params: {
       pCard: CardInstance | null;
       oCard: CardInstance | null;
-      target: ActorSide;
+      playerDeflected: boolean;
+      opponentDeflected: boolean;
       actionSummary: string;
       chamberIdx: number;
       slots: ChamberSlot[];
@@ -427,12 +511,12 @@ export const App: React.FC = () => {
       pHp: number;
       oHp: number;
       currentRound: number;
-      baseTurnTarget: ActorSide;
     }) => {
       const {
         pCard,
         oCard,
-        target,
+        playerDeflected,
+        opponentDeflected,
         actionSummary,
         chamberIdx,
         slots,
@@ -441,211 +525,184 @@ export const App: React.FC = () => {
         pHp,
         oHp,
         currentRound,
-        baseTurnTarget,
       } = params;
 
+      // 1. REVEAL CARDS (cards slide to center & lift toward player)
       setPhase('REVEAL_CARDS');
       soundEngine.playCardSlide();
       setStatusBanner('CARDS REVEALED!');
       setSubBanner(actionSummary);
 
       schedule(() => {
+        // 2. PICK TARGET (50/50 roulette spin on the table)
+        const initialRoll: ActorSide = Math.random() < 0.5 ? 'opponent' : 'player';
+        let target: ActorSide = initialRoll;
+        let targetSub =
+          initialRoll === 'player'
+            ? '50/50 spin landed on YOU!'
+            : `50/50 spin landed on ${opponent.name}!`;
+
+        if (initialRoll === 'player' && playerDeflected && !opponentDeflected) {
+          target = 'opponent';
+          targetSub = `Spin landed on YOU — DEFLECTED to ${opponent.name}!`;
+        } else if (
+          initialRoll === 'opponent' &&
+          opponentDeflected &&
+          !playerDeflected
+        ) {
+          target = 'player';
+          targetSub = `Spin landed on ${opponent.name} — DEFLECTED to YOU!`;
+        } else if (playerDeflected && opponentDeflected) {
+          targetSub = `Both played DEFLECT (cancelled) — Aimed at ${
+            target === 'player' ? 'YOU' : opponent.name
+          }!`;
+        }
+
         setTurnTarget(target);
-
-        const workingSlots = slots.map((s, idx) =>
-          idx === chamberIdx ? { ...s, revealed: true } : s
-        );
-        const chamberCard = workingSlots[chamberIdx]?.card ?? null;
-        setCylinderSlots(workingSlots);
-        setCurrentChamberIdx(chamberIdx);
-        setPhase('RESOLVE_CHAMBER');
-        soundEngine.playShellClink(1.1);
-
-        const targetName = target === 'player' ? 'YOU' : opponent.name;
-        const remainingStats = countChamberCardTypes(workingSlots);
-        const remBlank =
-          remainingStats.blue + remainingStats.purple + remainingStats.empty;
-        setStatusBanner(`FIRING CHAMBER #${chamberIdx + 1}/6 → ${targetName}`);
-        setSubBanner(
-          `${remainingStats.red} Live · ${remBlank} Blank remaining in cylinder`
-        );
+        setPhase('PICK_TARGET');
+        soundEngine.playCylinderSpin();
+        setStatusBanner('50/50 ROULETTE SPIN...');
+        setSubBanner(targetSub);
 
         schedule(() => {
-          setPhase(target === 'opponent' ? 'FIRE_OPPONENT' : 'FIRE_PLAYER');
-
-          workingSlots[chamberIdx] = {
-            ...workingSlots[chamberIdx],
-            spent: true,
-            revealed: true,
-          };
-          if (chamberCard) {
-            discardPileRef.current.push(chamberCard);
-            syncDeckCounts();
-          }
-          setCylinderSlots([...workingSlots]);
-
-          // Clear peek info once the peeked chamber has been fired
-          setPeekedSlotInfo((prev) =>
-            prev && prev.includes(`#${chamberIdx + 1}:`) ? null : prev
+          // 3. RESOLVE CHAMBER (gun lifts & aims, drum slowly rotates into barrel)
+          const workingSlots = slots.map((s, idx) =>
+            idx === chamberIdx ? { ...s, revealed: true } : s
           );
+          const chamberCard = workingSlots[chamberIdx]?.card ?? null;
+          setCylinderSlots(workingSlots);
+          setCurrentChamberIdx(chamberIdx);
+          setPhase('RESOLVE_CHAMBER');
+          soundEngine.playShellClink(1.1);
 
-          const fireRes = chamberCard
-            ? chamberCard.def.onChamberFire({
-                target,
-                chamberIndex: chamberIdx,
-                card: chamberCard,
-              })
-            : {
-                damageToTarget: 0,
-                logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
-              };
-
-          let workingPHp = pHp;
-          let workingOHp = oHp;
-          let workingPHand = [...pHand];
-          let workingOHand = [...oHand];
-
-          if (fireRes.damageToTarget > 0) {
-            soundEngine.playGunshotBlast(false);
-            setShakeIntensity(1.15);
-            setGunMuzzleFlash(true);
-
-            if (target === 'opponent') {
-              workingOHp = Math.max(0, workingOHp - fireRes.damageToTarget);
-              setOpponentHp(workingOHp);
-              setOpponentDamagedAnim(true);
-              setStats((s) => ({
-                ...s,
-                shotsFired: s.shotsFired + 1,
-                damageDealt: s.damageDealt + fireRes.damageToTarget,
-              }));
-              setOpponentSpeech(
-                opponent.tauntDamaged[
-                  Math.floor(Math.random() * opponent.tauntDamaged.length)
-                ]
-              );
-              setStatusBanner(
-                `BANG! ${opponent.name} TAKES ${fireRes.damageToTarget} DMG!`
-              );
-            } else {
-              workingPHp = Math.max(0, workingPHp - fireRes.damageToTarget);
-              setPlayerHp(workingPHp);
-              setPlayerDamagedFlash(true);
-              setOpponentSpeech(
-                opponent.tauntHitPlayer[
-                  Math.floor(Math.random() * opponent.tauntHitPlayer.length)
-                ]
-              );
-              setStatusBanner(`BANG! YOU TAKE ${fireRes.damageToTarget} DMG!`);
-            }
-          } else {
-            soundEngine.playDryFireClick();
-            setGunDryFire(true);
-            setStatusBanner('CLICK! BLANK CHAMBER — SAFE!');
-            if (target === 'player') {
-              setStats((s) => ({
-                ...s,
-                selfShotsSurvived: s.selfShotsSurvived + 1,
-              }));
-            } else {
-              setOpponentSpeech(
-                opponent.tauntSelfSafe[
-                  Math.floor(Math.random() * opponent.tauntSelfSafe.length)
-                ]
-              );
-            }
-          }
-
+          const targetName = target === 'player' ? 'YOU' : opponent.name;
+          const remainingStats = countChamberCardTypes(workingSlots);
+          const remBlank =
+            remainingStats.blue + remainingStats.purple + remainingStats.empty;
+          setStatusBanner(`AIMING CHAMBER #${chamberIdx + 1}/6 → ${targetName}`);
           setSubBanner(
-            `Chamber #${chamberIdx + 1} fired at ${targetName}.`
-          );
-          setLastTurnSummary(
-            `Last Turn: ${actionSummary} → Shot at ${targetName}: ${
-              fireRes.damageToTarget > 0
-                ? `BANG! (-${fireRes.damageToTarget} HP)`
-                : 'CLICK (Blank)'
-            }`
+            `Drum aligning... (${remainingStats.red} Live · ${remBlank} Blank remaining)`
           );
 
           schedule(() => {
-            setGunMuzzleFlash(false);
-            setGunDryFire(false);
-            setOpponentDamagedAnim(false);
-            setPlayerDamagedFlash(false);
+            // 4. FIRE SHOT
+            setPhase(target === 'opponent' ? 'FIRE_OPPONENT' : 'FIRE_PLAYER');
 
-            // Discard both played cards after the turn resolves
-            if (pCard) discardPileRef.current.push(pCard);
-            if (oCard) discardPileRef.current.push(oCard);
-            syncDeckCounts();
-            setPlayerPlayedCard(null);
-            setOpponentPlayedCard(null);
-
-            if (workingOHp <= 0) {
-              soundEngine.playVictoryFanfare();
-              setPhase('VICTORY');
-              setStatusBanner(`${opponent.name} ELIMINATED — YOU WIN THE MATCH!`);
-              setSubBanner('All opponent hearts depleted.');
-              return;
+            workingSlots[chamberIdx] = {
+              ...workingSlots[chamberIdx],
+              spent: true,
+              revealed: true,
+            };
+            if (chamberCard) {
+              discardPileRef.current.push(chamberCard);
+              syncDeckCounts();
             }
-            if (workingPHp <= 0) {
-              soundEngine.playDefeatToll();
-              setPhase('GAME_OVER');
-              setStatusBanner('YOU FELL AT THE TABLE');
-              setSubBanner('All 3 of your hearts were depleted.');
-              return;
-            }
+            setCylinderSlots([...workingSlots]);
 
-            const nextIdx = chamberIdx + 1;
-            const nextBaseTarget: ActorSide =
-              baseTurnTarget === 'opponent' ? 'player' : 'opponent';
+            setPeekedSlotInfo((prev) =>
+              prev && prev.includes(`#${chamberIdx + 1}:`) ? null : prev
+            );
 
-            // Reload when all 6 chambers are spent
-            if (nextIdx >= 6) {
-              setPhase('RELOAD_ROUND');
-              setStatusBanner('ALL 6 CHAMBERS SPENT — RELOADING CYLINDER');
-              setSubBanner('Replenishing hands & loading fresh shells...');
-              schedule(() => {
-                beginNewRound(
-                  currentRound + 1,
-                  workingPHand,
-                  workingOHand,
-                  nextBaseTarget
+            const fireRes = chamberCard
+              ? chamberCard.def.onChamberFire({
+                  target,
+                  chamberIndex: chamberIdx,
+                  card: chamberCard,
+                })
+              : {
+                  damageToTarget: 0,
+                  logMessage: 'CLICK! BLANK CHAMBER — NO DAMAGE.',
+                };
+
+            let workingPHp = pHp;
+            let workingOHp = oHp;
+
+            if (fireRes.damageToTarget > 0) {
+              soundEngine.playGunshotBlast(false);
+              setShakeIntensity(1.15);
+              setGunMuzzleFlash(true);
+
+              if (target === 'opponent') {
+                workingOHp = Math.max(0, workingOHp - fireRes.damageToTarget);
+                setOpponentHp(workingOHp);
+                setOpponentDamagedAnim(true);
+                setStats((s) => ({
+                  ...s,
+                  shotsFired: s.shotsFired + 1,
+                  damageDealt: s.damageDealt + fireRes.damageToTarget,
+                }));
+                setOpponentSpeech(
+                  opponent.tauntDamaged[
+                    Math.floor(Math.random() * opponent.tauntDamaged.length)
+                  ]
                 );
-              }, 1600);
-              return;
+                setStatusBanner(
+                  `BANG! ${opponent.name} TAKES ${fireRes.damageToTarget} DMG!`
+                );
+              } else {
+                workingPHp = Math.max(0, workingPHp - fireRes.damageToTarget);
+                setPlayerHp(workingPHp);
+                setPlayerDamagedFlash(true);
+                setOpponentSpeech(
+                  opponent.tauntHitPlayer[
+                    Math.floor(Math.random() * opponent.tauntHitPlayer.length)
+                  ]
+                );
+                setStatusBanner(`BANG! YOU TAKE ${fireRes.damageToTarget} DMG!`);
+              }
+            } else {
+              soundEngine.playDryFireClick();
+              setGunDryFire(true);
+              setStatusBanner('CLICK! BLANK CHAMBER — SAFE!');
+              if (target === 'player') {
+                setStats((s) => ({
+                  ...s,
+                  selfShotsSurvived: s.selfShotsSurvived + 1,
+                }));
+              } else {
+                setOpponentSpeech(
+                  opponent.tauntSelfSafe[
+                    Math.floor(Math.random() * opponent.tauntSelfSafe.length)
+                  ]
+                );
+              }
             }
 
-            // Draw 1 card per turn (up to 4 in hand) so players keep tactical options
-            if (workingPHand.length < 4) {
-              const needed = workingPHand.length === 0 ? 2 : 1;
-              workingPHand = [...workingPHand, ...drawFromSharedDeck(needed)];
-              setPlayerHand(workingPHand);
-            }
-            if (workingOHand.length < 4) {
-              const needed = workingOHand.length === 0 ? 2 : 1;
-              workingOHand = [...workingOHand, ...drawFromSharedDeck(needed)];
-              setOpponentHand(workingOHand);
-            }
-
-            setCurrentChamberIdx(nextIdx);
-            setTurnTarget(nextBaseTarget);
-            setTurnNumber((t) => t + 1);
-            setStats((s) => ({ ...s, turnsPlayed: s.turnsPlayed + 1 }));
-            setSelectedCard(null);
-            setPhase('PLAYER_SELECT');
-            setStatusBanner(
-              nextBaseTarget === 'opponent'
-                ? `YOUR SHOT — AIMED AT ${opponent.name}`
-                : `ENEMY SHOT — AIMED AT YOU`
-            );
             setSubBanner(
-              `1. Pick a card (optional)  →  2. Ring the Bell or click Lock In to fire Chamber #${nextIdx + 1}/6`
+              `Chamber #${chamberIdx + 1} fired at ${targetName}. Click CONTINUE when ready.`
             );
-          }, 2000);
-        }, 1500);
+            setLastTurnSummary(
+              `Last Turn: ${actionSummary} → Shot at ${targetName}: ${
+                fireRes.damageToTarget > 0
+                  ? `BANG! (-${fireRes.damageToTarget} HP)`
+                  : 'CLICK (Blank)'
+              }`
+            );
+
+            // Pause on TURN_RESULT until player clicks CONTINUE
+            schedule(() => {
+              setGunMuzzleFlash(false);
+              setGunDryFire(false);
+              setOpponentDamagedAnim(false);
+              setPlayerDamagedFlash(false);
+
+              pendingContinueRef.current = {
+                pCard,
+                oCard,
+                chamberIdx,
+                workingPHand: [...pHand],
+                workingOHand: [...oHand],
+                workingPHp,
+                workingOHp,
+                currentRound,
+              };
+              setPhase('TURN_RESULT');
+            }, 950);
+          }, 1600);
+        }, 1800);
       }, 2000);
     },
-    [opponent, drawFromSharedDeck, beginNewRound, syncDeckCounts]
+    [opponent, syncDeckCounts]
   );
 
   // Card Click Handler: slides card onto LOCK IN SLOT
@@ -691,12 +748,7 @@ export const App: React.FC = () => {
     }
 
     const remaining = countChamberCardTypes(cylinderSlots);
-    const oCard = decideAiTurnAction(
-      opponentHand,
-      remaining,
-      opponentHp,
-      turnTarget
-    );
+    const oCard = decideAiTurnAction(opponentHand, remaining, opponentHp);
     let nextOHand = [...opponentHand];
     if (oCard) {
       nextOHand = nextOHand.filter((c) => c.uid !== oCard.uid);
@@ -710,8 +762,7 @@ export const App: React.FC = () => {
       pCard,
       oCard,
       cylinderSlots,
-      currentChamberIdx,
-      turnTarget
+      currentChamberIdx
     );
     setCylinderSlots(applied.slots);
     if (pCard?.def.effectType === 'spin_drum' || oCard?.def.effectType === 'spin_drum') {
@@ -727,7 +778,8 @@ export const App: React.FC = () => {
     executeSimultaneousTurn({
       pCard,
       oCard,
-      target: applied.target,
+      playerDeflected: applied.playerDeflected,
+      opponentDeflected: applied.opponentDeflected,
       actionSummary: applied.actionSummary,
       chamberIdx: currentChamberIdx,
       slots: applied.slots,
@@ -736,7 +788,6 @@ export const App: React.FC = () => {
       pHp: playerHp,
       oHp: opponentHp,
       currentRound: roundNumber,
-      baseTurnTarget: turnTarget,
     });
   }, [
     phase,
@@ -745,7 +796,6 @@ export const App: React.FC = () => {
     cylinderSlots,
     opponentHand,
     opponentHp,
-    turnTarget,
     applySimultaneousCardsToCylinder,
     currentChamberIdx,
     opponent,
@@ -757,7 +807,6 @@ export const App: React.FC = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (phase !== 'PRE_ROUND_LOAD' && phase !== 'PLAYER_SELECT') return;
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -765,6 +814,15 @@ export const App: React.FC = () => {
         return;
       }
       if (document.querySelector('dialog[open]')) return;
+
+      if (phase === 'TURN_RESULT' && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        soundEngine.playCardHover();
+        handleContinueTurn();
+        return;
+      }
+
+      if (phase !== 'PRE_ROUND_LOAD' && phase !== 'PLAYER_SELECT') return;
 
       const num = parseInt(e.key, 10);
       if (num >= 1 && num <= playerHand.length) {
@@ -779,7 +837,7 @@ export const App: React.FC = () => {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [phase, playerHand, handleSelectPlayerCard, handleRingBell]);
+  }, [phase, playerHand, handleSelectPlayerCard, handleRingBell, handleContinueTurn]);
 
   const shellTypesFor3D = slotsToShellTypes(cylinderSlots, !showChamberCounts);
 
@@ -856,6 +914,7 @@ export const App: React.FC = () => {
         onSelectPlayerCard={handleSelectPlayerCard}
         onHoverCard={setHoveredCard}
         onRingBell={handleRingBell}
+        onContinueTurn={handleContinueTurn}
         onDraftCard={handleDraftCard}
         onToggleChamberCounts={() => setShowChamberCounts((v) => !v)}
         onAdvanceNextStage={() =>
