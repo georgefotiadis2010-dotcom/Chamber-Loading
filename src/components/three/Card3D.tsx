@@ -124,7 +124,7 @@ export const Card3D: React.FC<Card3DProps> = ({
       targetScale = 0.88;
     }
 
-    const speed = Math.min(1, delta * 11);
+    const speed = Math.min(1, delta * 7.5);
     groupRef.current.position.lerp(targetPos, speed);
     groupRef.current.rotation.x = THREE.MathUtils.lerp(
       groupRef.current.rotation.x,

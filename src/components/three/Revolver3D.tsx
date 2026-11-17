@@ -240,7 +240,7 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
       }
     }
 
-    const lerpSpeed = Math.min(1, delta * 9);
+    const lerpSpeed = Math.min(1, delta * 6.5);
     gunGroupRef.current.position.lerp(targetPos, lerpSpeed);
     gunGroupRef.current.rotation.x = THREE.MathUtils.lerp(gunGroupRef.current.rotation.x, targetRotX, lerpSpeed);
     gunGroupRef.current.rotation.y = THREE.MathUtils.lerp(gunGroupRef.current.rotation.y, targetRotY, lerpSpeed);

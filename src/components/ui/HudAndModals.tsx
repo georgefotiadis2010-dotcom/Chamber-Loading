@@ -80,6 +80,7 @@ interface HudAndModalsProps {
   statusBanner: string;
   subBanner: string;
   opponentSpeech: string;
+  lastTurnSummary: string | null;
   peekedSlotInfo: string | null;
   playerHp: number;
   playerMaxHp: number;
@@ -127,6 +128,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   statusBanner,
   subBanner,
   opponentSpeech,
+  lastTurnSummary,
   peekedSlotInfo,
   playerHp,
   playerMaxHp,
@@ -259,6 +261,12 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
               </div>
             )}
           </div>
+
+          {lastTurnSummary && phase === 'PLAYER_SELECT' && (
+            <div className="px-3 py-0.5 rounded-full bg-stone-950/75 border border-amber-900/50 text-amber-200/80 font-mono text-[10px] sm:text-[11px] max-w-full truncate shadow">
+              {lastTurnSummary}
+            </div>
+          )}
 
           {peekedSlotInfo && (
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-950/90 border border-sky-400/70 text-sky-100 font-mono text-[11px] font-bold shadow-md">

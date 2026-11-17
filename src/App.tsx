@@ -80,6 +80,7 @@ export const App: React.FC = () => {
   const [opponentSpeech, setOpponentSpeech] = useState<string>(
     LADDER_OPPONENTS[0].tauntIntro
   );
+  const [lastTurnSummary, setLastTurnSummary] = useState<string | null>(null);
 
   // Shared 6-Chamber Cylinder (Starts with 1 Live + 5 Blanks)
   const [cylinderSlots, setCylinderSlots] = useState<ChamberSlot[]>(() =>
@@ -205,7 +206,7 @@ export const App: React.FC = () => {
         setSubBanner(
           '1. Pick a card (optional)  →  2. Ring the Bell or click Lock In to fire Chamber #1/6'
         );
-      }, 1000);
+      }, 1600);
     },
     [drawFromSharedDeck, opponent.name]
   );
@@ -224,6 +225,7 @@ export const App: React.FC = () => {
       setOpponentHp(targetOpp.maxHp);
       setTurnNumber(1);
       setTurnTarget('opponent');
+      setLastTurnSummary(null);
       setGunMuzzleFlash(false);
       setGunDryFire(false);
       setOpponentDamagedAnim(false);
@@ -557,6 +559,13 @@ export const App: React.FC = () => {
           setSubBanner(
             `Chamber #${chamberIdx + 1} fired at ${targetName}.`
           );
+          setLastTurnSummary(
+            `Last Turn: ${actionSummary} → Shot at ${targetName}: ${
+              fireRes.damageToTarget > 0
+                ? `BANG! (-${fireRes.damageToTarget} HP)`
+                : 'CLICK (Blank)'
+            }`
+          );
 
           schedule(() => {
             setGunMuzzleFlash(false);
@@ -602,7 +611,7 @@ export const App: React.FC = () => {
                   workingOHand,
                   nextBaseTarget
                 );
-              }, 1100);
+              }, 1600);
               return;
             }
 
@@ -632,9 +641,9 @@ export const App: React.FC = () => {
             setSubBanner(
               `1. Pick a card (optional)  →  2. Ring the Bell or click Lock In to fire Chamber #${nextIdx + 1}/6`
             );
-          }, 1100);
-        }, 850);
-      }, 1100);
+          }, 2000);
+        }, 1500);
+      }, 2000);
     },
     [opponent, drawFromSharedDeck, beginNewRound, syncDeckCounts]
   );
@@ -823,6 +832,7 @@ export const App: React.FC = () => {
         statusBanner={statusBanner}
         subBanner={subBanner}
         opponentSpeech={opponentSpeech}
+        lastTurnSummary={lastTurnSummary}
         peekedSlotInfo={peekedSlotInfo}
         playerHp={playerHp}
         playerMaxHp={playerMaxHp}
