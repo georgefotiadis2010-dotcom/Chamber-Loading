@@ -105,6 +105,7 @@ export interface ChamberSlot {
   card: CardInstance | null; // null = Default Empty/Blank chamber
   spent: boolean;
   revealed: boolean;
+  loadedAt?: number; // Monotonic load sequence for FIFO eviction when drum is full
 }
 
 export type TurnPhase =

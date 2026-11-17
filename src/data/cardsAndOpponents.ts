@@ -735,11 +735,13 @@ export function buildShuffledRoundCylinder(loadedCards: CardInstance[]): Chamber
     rawCards.push(null);
   }
   const shuffled = shuffleArray(rawCards);
+  let loadSeq = 0;
   return shuffled.map((card, index) => ({
     index,
     card,
     spent: false,
     revealed: false,
+    loadedAt: card ? ++loadSeq : undefined,
   }));
 }
 

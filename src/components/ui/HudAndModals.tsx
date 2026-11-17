@@ -212,7 +212,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
               R{roundNumber}·T{turnNumber} ·{' '}
               {showChamberCounts
                 ? `${liveCount} LIVE / ${blankCount} BLANK`
-                : `${counts.remaining} LEFT`}
+                : `${6 - counts.empty}/6 LOADED`}
             </button>
           </div>
 

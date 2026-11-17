@@ -104,7 +104,8 @@ export const App: React.FC = () => {
     workingPHp: number;
     workingOHp: number;
     currentRound: number;
-    remainingUnspent: number;
+    liveCount: number;
+    blankCount: number;
     drumReset: boolean;
   } | null>(null);
 
@@ -194,9 +195,6 @@ export const App: React.FC = () => {
       const nextOHand = [...currentOHand, ...drawFromSharedDeck(oNeeded)];
 
       const liveSeeds: CardInstance[] = [createCardInstance('red_crimsonslug')];
-      if (nextRound >= 2) {
-        liveSeeds.push(createCardInstance('red_crimsonslug'));
-      }
 
       const freshSlots = buildShuffledRoundCylinder(liveSeeds);
 
@@ -336,25 +334,52 @@ export const App: React.FC = () => {
         stolenForOpponent: null,
       };
 
-      const loadShellIntoDrum = (shellCard: CardInstance): number | null => {
-        const unspent = updated.filter((s) => !s.spent).map((s) => s.index);
-        if (unspent.length === 0) return null;
-        const blankSlots = unspent.filter((idx) => updated[idx].card === null);
-        const nonRedSlots = unspent.filter((idx) => !isLiveChamberCard(updated[idx].card));
-        const pool = blankSlots.length > 0 ? blankSlots : nonRedSlots.length > 0 ? nonRedSlots : unspent;
-        const targetIdx = pool[Math.floor(Math.random() * pool.length)];
+      let nextLoadSeq = updated.reduce(
+        (max, s) => Math.max(max, s.loadedAt ?? 0),
+        0
+      );
+      let evictedAny = false;
+
+      const loadShellIntoDrum = (
+        shellCard: CardInstance
+      ): { index: number; evictedCard: CardInstance | null } => {
+        const emptySlots = updated
+          .filter((s) => s.card === null)
+          .map((s) => s.index);
+
+        let targetIdx: number;
+        let evictedCard: CardInstance | null = null;
+
+        if (emptySlots.length > 0) {
+          targetIdx = emptySlots[Math.floor(Math.random() * emptySlots.length)];
+        } else {
+          // Drum is full: remove the oldest loaded card (FIFO queue) to make room
+          const oldestSlot = updated.reduce((oldest, slot) => {
+            const oldestSeq = oldest.loadedAt ?? 0;
+            const slotSeq = slot.loadedAt ?? 0;
+            return slotSeq < oldestSeq ? slot : oldest;
+          }, updated[0]);
+          targetIdx = oldestSlot.index;
+          evictedCard = oldestSlot.card;
+          if (evictedCard) {
+            discardPileRef.current.push(evictedCard);
+            evictedAny = true;
+          }
+        }
+
         updated[targetIdx] = {
           ...updated[targetIdx],
           card: shellCard,
           spent: false,
           revealed: false,
+          loadedAt: ++nextLoadSeq,
         };
-        return targetIdx;
+        return { index: targetIdx, evictedCard };
       };
 
       const removeRandomLive = (): boolean => {
         const liveIndices = updated
-          .filter((s) => !s.spent && isLiveChamberCard(s.card))
+          .filter((s) => isLiveChamberCard(s.card))
           .map((s) => s.index);
         if (liveIndices.length === 0) return false;
         const targetIdx = liveIndices[Math.floor(Math.random() * liveIndices.length)];
@@ -363,6 +388,7 @@ export const App: React.FC = () => {
           card: null,
           spent: false,
           revealed: false,
+          loadedAt: undefined,
         };
         return true;
       };
@@ -429,9 +455,13 @@ export const App: React.FC = () => {
 
         switch (card.def.effectType) {
           case 'load_live': {
-            const idx = loadShellIntoDrum(card);
+            const { evictedCard } = loadShellIntoDrum(card);
             soundEngine.playShellClink(0.95);
-            summaries.push(idx !== null ? `${actor}: LOAD LIVE (+1 Live)` : `${actor}: LOAD LIVE (Drum Full)`);
+            summaries.push(
+              evictedCard
+                ? `${actor}: LOAD LIVE (Replaced oldest ${evictedCard.def.name})`
+                : `${actor}: LOAD LIVE (+1 Live)`
+            );
             break;
           }
           case 'brace': {
@@ -479,10 +509,12 @@ export const App: React.FC = () => {
             break;
           }
           case 'concussion_round': {
-            const idx = loadShellIntoDrum(card);
+            const { evictedCard } = loadShellIntoDrum(card);
             soundEngine.playShellClink(0.85);
             summaries.push(
-              idx !== null ? `${actor}: CONCUSSION (+1 Shell)` : `${actor}: CONCUSSION (Drum Full)`
+              evictedCard
+                ? `${actor}: CONCUSSION (Replaced oldest ${evictedCard.def.name})`
+                : `${actor}: CONCUSSION (+1 Shell)`
             );
             break;
           }
@@ -515,8 +547,8 @@ export const App: React.FC = () => {
             } else if (side === 'opponent' && mods.workingOHp > 1) {
               mods.workingOHp -= 1;
             }
-            const idx = loadShellIntoDrum(card);
-            if (idx !== null) mods.guaranteedChamberIndex = idx;
+            const { index: idx } = loadShellIntoDrum(card);
+            mods.guaranteedChamberIndex = idx;
             soundEngine.playShellClink(0.75);
             summaries.push(`${actor}: BLOOD PACT (-1 HP · 2 DMG Pierce!)`);
             break;
@@ -561,11 +593,13 @@ export const App: React.FC = () => {
           }
           case 'russian_roulette': {
             for (let i = 0; i < updated.length; i++) {
-              if (!updated[i].spent && updated[i].card === null) {
+              if (updated[i].card === null) {
                 updated[i] = {
                   ...updated[i],
                   card: createCardInstance('red_crimsonslug'),
+                  spent: false,
                   revealed: false,
+                  loadedAt: ++nextLoadSeq,
                 };
               }
             }
@@ -575,19 +609,21 @@ export const App: React.FC = () => {
             break;
           }
           case 'golden_gun': {
-            const idx = loadShellIntoDrum(card);
-            if (idx !== null) mods.guaranteedChamberIndex = idx;
+            const { index: idx } = loadShellIntoDrum(card);
+            mods.guaranteedChamberIndex = idx;
             mods.forcedAim = side === 'player' ? 'opponent' : 'player';
             soundEngine.playShellClink(0.8);
             summaries.push(`${actor}: GOLDEN GUN (2 DMG at Foe!)`);
             break;
           }
           case 'silver_bullet': {
-            const idx = loadShellIntoDrum(card);
+            const { evictedCard } = loadShellIntoDrum(card);
             mods.silverBulletCaster[side] = true;
             soundEngine.playShellClink(0.85);
             summaries.push(
-              idx !== null ? `${actor}: SILVER BULLET (+3 DMG Shell)` : `${actor}: SILVER BULLET (Drum Full)`
+              evictedCard
+                ? `${actor}: SILVER BULLET (Replaced oldest ${evictedCard.def.name})`
+                : `${actor}: SILVER BULLET (+3 DMG Shell)`
             );
             break;
           }
@@ -600,13 +636,17 @@ export const App: React.FC = () => {
         }
       }
 
+      if (evictedAny) {
+        syncDeckCounts();
+      }
+
       return {
         slots: updated,
         mods,
         actionSummary: summaries.join('  ·  '),
       };
     },
-    [playerMaxHp]
+    [playerMaxHp, syncDeckCounts]
   );
 
   // Advance from TURN_RESULT when player clicks CONTINUE
@@ -620,7 +660,8 @@ export const App: React.FC = () => {
       workingPHp,
       workingOHp,
       currentRound,
-      remainingUnspent,
+      liveCount,
+      blankCount,
       drumReset,
     } = pendingContinueRef.current;
     pendingContinueRef.current = null;
@@ -646,11 +687,9 @@ export const App: React.FC = () => {
       return;
     }
 
-    if (drumReset || remainingUnspent <= 0) {
+    if (drumReset) {
       setPhase('RELOAD_ROUND');
-      setStatusBanner(
-        drumReset ? 'REWIND — RELOADING FRESH DRUM' : 'ALL 6 CHAMBERS SPENT — RELOADING DRUM'
-      );
+      setStatusBanner('REWIND — RELOADING FRESH DRUM');
       setSubBanner('Replenishing hands & loading fresh shells...');
       schedule(() => {
         beginNewRound(currentRound + 1, workingPHand, workingOHand);
@@ -679,13 +718,20 @@ export const App: React.FC = () => {
     }
     setOpponentHand(nextOHand);
 
+    setCylinderSlots(
+      buildShuffledRoundCylinder([createCardInstance('red_crimsonslug')])
+    );
+    setCurrentChamberIdx(0);
+    setPeekedSlotInfo(null);
+    soundEngine.playCylinderSpin();
+
     setTurnNumber((t) => t + 1);
     setStats((s) => ({ ...s, turnsPlayed: s.turnsPlayed + 1 }));
     setSelectedCard(null);
     setPhase('PLAYER_SELECT');
     setStatusBanner('50/50 BET — CHOOSE YOUR CARD');
     setSubBanner(
-      `${remainingUnspent}/6 shells left in drum. Pick a card (or pass) & ring the Bell!`
+      'Drum reset: 1 Live · 5 Blank. Pick a card (or pass) & ring the Bell!'
     );
   }, [phase, opponent.name, syncDeckCounts, beginNewRound, drawFromSharedDeck]);
 
@@ -845,8 +891,10 @@ export const App: React.FC = () => {
               const cardInSlot = workingSlots[slotIdx]?.card ?? null;
               workingSlots[slotIdx] = {
                 ...workingSlots[slotIdx],
-                spent: true,
-                revealed: true,
+                card: null,
+                spent: false,
+                revealed: false,
+                loadedAt: undefined,
               };
               if (cardInSlot) {
                 discardPileRef.current.push(cardInSlot);
@@ -993,11 +1041,11 @@ export const App: React.FC = () => {
             setPhase(target === 'opponent' ? 'FIRE_OPPONENT' : 'FIRE_PLAYER');
             const firstShot = resolveOneChamber(chosenIdx, target);
 
-            // Hair Trigger: if first shot was Blank and drum still has unspent slots, fire a 2nd random chamber!
+            // Hair Trigger: if first shot was Blank, fire a 2nd random chamber!
             let secondShotInfo = '';
             if (firstShot.wasBlank && mods.hairTriggerActive && !drumReset) {
               const remainingPool = workingSlots
-                .filter((s) => !s.spent)
+                .filter((s) => s.index !== chosenIdx)
                 .map((s) => s.index);
               if (remainingPool.length > 0) {
                 const secondIdx =
@@ -1066,7 +1114,8 @@ export const App: React.FC = () => {
               }${secondShotInfo}`
             );
 
-            const remainingUnspent = workingSlots.filter((s) => !s.spent).length;
+            const endCounts = countChamberCardTypes(workingSlots);
+            const endBlankCount = endCounts.blue + endCounts.purple + endCounts.empty;
 
             schedule(() => {
               setGunMuzzleFlash(false);
@@ -1082,7 +1131,8 @@ export const App: React.FC = () => {
                 workingPHp,
                 workingOHp,
                 currentRound,
-                remainingUnspent,
+                liveCount: endCounts.red,
+                blankCount: endBlankCount,
                 drumReset,
               };
               setPhase('TURN_RESULT');
