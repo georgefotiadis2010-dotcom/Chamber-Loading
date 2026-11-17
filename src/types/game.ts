@@ -15,42 +15,16 @@ export type ActorSide = 'player' | 'opponent';
 export type AimChoice = 'opponent' | 'self';
 
 export interface ChamberFireContext {
-  shooter: ActorSide;
   target: ActorSide;
-  aim: AimChoice;
   chamberIndex: number;
   card: CardInstance | null;
-  reflectedToShooter: boolean;
-  cancelledChamberEffect: boolean;
 }
 
 export interface ChamberFireResult {
   damageToTarget: number;
-  damageToShooter: number;
-  keepTurn: boolean;
   discardTargetCard?: boolean;
   peekNextChamber?: boolean;
-  drawCards?: number;
-  skipShooterNextTurn?: boolean;
-  forceFireNextAtShooter?: boolean;
-  logMessage: string;
-}
-
-export interface TableTriggerContext {
-  trapOwner: ActorSide;
-  shooter: ActorSide;
-  target: ActorSide;
-  aim: AimChoice;
-  chamberCard: CardInstance | null; // null = Empty/Blank
-}
-
-export interface TableTriggerResult {
-  triggered: boolean;
-  reflectDamage?: boolean;
-  cancelChamberEffect?: boolean;
-  damageShooter?: number;
-  discardShooterCard?: boolean;
-  stealTurn?: boolean;
+  drawCardsForBoth?: number;
   logMessage: string;
 }
 
@@ -62,14 +36,12 @@ export interface CardDef {
   shortTag: string;
   description: string;
   chamberEffectText: string;
-  tableTrapText: string;
   accentColor: string;
   borderColor: string;
   headerBgColor: string;
   artBgColor: string;
   badgeText: string;
   onChamberFire: (ctx: ChamberFireContext) => ChamberFireResult;
-  onTableTrigger: (ctx: TableTriggerContext) => TableTriggerResult;
 }
 
 export interface CardInstance {
@@ -88,9 +60,8 @@ export type TurnPhase =
   | 'PRE_ROUND_LOAD'
   | 'SPIN_CYLINDERS'
   | 'PLAYER_SELECT'
-  | 'AI_THINKING'
+  | 'REVEAL_CARDS'
   | 'RESOLVE_CHAMBER'
-  | 'RESOLVE_TRAP'
   | 'FIRE_PLAYER'
   | 'FIRE_OPPONENT'
   | 'RELOAD_ROUND'

@@ -12,8 +12,6 @@ import {
   Plus,
 } from 'lucide-react';
 import {
-  ActorSide,
-  AimChoice,
   CardId,
   CardInstance,
   ChamberSlot,
@@ -74,7 +72,6 @@ interface HudAndModalsProps {
   stageIndex: number;
   roundNumber: number;
   turnNumber: number;
-  activePlayer: ActorSide;
   phase: TurnPhase;
   statusBanner: string;
   subBanner: string;
@@ -91,10 +88,9 @@ interface HudAndModalsProps {
   discardCount: number;
   playerHand: CardInstance[];
   selectedLoadCards: CardInstance[];
-  selectedTrapCard: CardInstance | null;
-  playerTableTrap: CardInstance | null;
-  opponentTableTrap: CardInstance | null;
-  playerAim: AimChoice;
+  selectedCard: CardInstance | null;
+  playerPlayedCard: CardInstance | null;
+  opponentPlayedCard: CardInstance | null;
   hoveredCard: CardInstance | null;
   muted: boolean;
   focusMode: CameraFocusMode;
@@ -107,8 +103,6 @@ interface HudAndModalsProps {
   };
   onSelectPlayerCard: (card: CardInstance) => void;
   onHoverCard: (card: CardInstance | null) => void;
-  onTogglePlayerAim: () => void;
-  onSelectPlayerAim: (choice: AimChoice) => void;
   onRingBell: () => void;
   onDraftCard: (cardId: CardId) => void;
   onToggleChamberCounts: () => void;
@@ -404,12 +398,8 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-amber-100/90 mt-1.5">
-                    <strong className="text-amber-300">Lock In:</strong>{' '}
+                    <strong className="text-amber-300">Chamber Effect:</strong>{' '}
                     {c.chamberEffectText}
-                  </p>
-                  <p className="text-xs text-stone-300 mt-0.5">
-                    <strong className="text-sky-300">Slot Counter:</strong>{' '}
-                    {c.tableTrapText}
                   </p>
                 </div>
 
@@ -532,20 +522,21 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
             <strong className="text-amber-200">LOCK IN SLOT</strong>.
           </p>
           <p>
-            <strong className="text-amber-300">2. Flip Your Aim Poker-Chip:</strong>{' '}
-            Click the Red <strong className="text-red-400">AIM OPPONENT</strong> skull
-            chip or the Blue <strong className="text-sky-300">AIM SELF</strong> shield
-            chip beside your revolver. Shooting yourself with a Blank/Empty chamber deals{' '}
-            <strong>0 DMG and grants an extra turn!</strong>
-          </p>
-          <p>
-            <strong className="text-amber-300">3. Ring the 3D Brass Bell:</strong>{' '}
-            Click the <strong className="text-amber-300">LOCK IN</strong> bell (or press{' '}
+            <strong className="text-amber-300">2. Simultaneous Lock In:</strong>{' '}
+            Click the <strong className="text-amber-300">LOCK IN</strong> brass bell (or
+            press{' '}
             <kbd className="px-1.5 py-0.5 rounded bg-black/50 border border-amber-700 text-xs">
               Enter
             </kbd>
-            ) to slide both players’ cards into the mid-table resolution slots and pull
-            the trigger!
+            ). Both you and your opponent place your cards onto the table at the exact
+            same time, modifying the shared 6-chamber cylinder!
+          </p>
+          <p>
+            <strong className="text-amber-300">3. Random Single-Gun Shot:</strong>{' '}
+            After both cards are placed, the single revolver randomly picks whether to
+            aim at <strong className="text-red-400">OPPONENT</strong> or{' '}
+            <strong className="text-sky-300">YOU</strong> and fires <strong>once</strong>{' '}
+            for the turn!
           </p>
         </div>
       </dialog>

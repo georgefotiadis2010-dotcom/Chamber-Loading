@@ -1,5 +1,4 @@
 import {
-  AimChoice,
   CardDef,
   CardId,
   CardInstance,
@@ -18,51 +17,16 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     description:
       'Loads a Live brass shell into the cylinder. Deals 1 DMG & forces target to discard 1.',
     chamberEffectText: 'Load Live brass shell. Deals 1 DMG + target discards 1.',
-    tableTrapText: 'Reflects an incoming Live shot back at shooter.',
     accentColor: '#60a5fa',
     borderColor: '#477ba2',
     headerBgColor: '#477ba2',
     artBgColor: '#2d3f50',
     badgeText: 'LIVE • REVOLVER',
-    onChamberFire: (ctx) => {
-      if (ctx.cancelledChamberEffect) {
-        return {
-          damageToTarget: 0,
-          damageToShooter: 0,
-          keepTurn: false,
-          logMessage: 'LOAD LIVE was blocked by a Table Trap!',
-        };
-      }
-      if (ctx.reflectedToShooter) {
-        return {
-          damageToTarget: 0,
-          damageToShooter: 1,
-          keepTurn: false,
-          logMessage: 'LOAD LIVE reflected! Shooter takes 1 DMG.',
-        };
-      }
-      return {
-        damageToTarget: 1,
-        damageToShooter: 0,
-        keepTurn: false,
-        discardTargetCard: true,
-        logMessage: 'LOAD LIVE FIRED! 1 Brass DMG + target discards 1 card!',
-      };
-    },
-    onTableTrigger: (ctx) => {
-      const isRedAtOwner =
-        ctx.shooter !== ctx.trapOwner &&
-        ctx.target === ctx.trapOwner &&
-        ctx.chamberCard?.def.color === 'red';
-      if (!isRedAtOwner) {
-        return { triggered: false, logMessage: '' };
-      }
-      return {
-        triggered: true,
-        reflectDamage: true,
-        logMessage: 'COUNTER LOCKED: Load Live reflected the incoming Live shot!',
-      };
-    },
+    onChamberFire: () => ({
+      damageToTarget: 1,
+      discardTargetCard: true,
+      logMessage: 'LOAD LIVE FIRED! 1 Brass DMG + target discards 1 card!',
+    }),
   },
 
   blue_silverblank: {
@@ -70,40 +34,20 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     name: 'STRIP SHELL',
     color: 'blue',
     category: 'blue',
-    shortTag: 'STRIP & RACK',
+    shortTag: 'STRIP & PEEK',
     description:
-      'Load/blank ammo: Strips & ejects shell. Safe 0 DMG self-shot keeps your turn & peeks next!',
-    chamberEffectText: 'Load/blank ammo: 0 DMG. Self-shot keeps turn & peeks next.',
-    tableTrapText: 'Strips & cancels 1 incoming shot aimed at you.',
+      'Strips a Live shell into a Silver Blank (0 DMG) & peeks at the next chamber.',
+    chamberEffectText: 'Strips 1 Live shell to Blank (0 DMG) & peeks next chamber.',
     accentColor: '#f59e0b',
     borderColor: '#cf6726',
     headerBgColor: '#cf6726',
     artBgColor: '#4e2515',
     badgeText: 'SHELL • STRIP',
-    onChamberFire: (ctx) => {
-      const selfShot = ctx.aim === 'self';
-      return {
-        damageToTarget: 0,
-        damageToShooter: 0,
-        keepTurn: selfShot,
-        peekNextChamber: true,
-        logMessage: selfShot
-          ? 'STRIP SHELL! Chamber stripped clean — keep your turn & peek next!'
-          : 'STRIP SHELL! Ejected shell harmlessly across the table.',
-      };
-    },
-    onTableTrigger: (ctx) => {
-      const aimedAtOwner =
-        ctx.shooter !== ctx.trapOwner && ctx.target === ctx.trapOwner;
-      if (!aimedAtOwner) {
-        return { triggered: false, logMessage: '' };
-      }
-      return {
-        triggered: true,
-        cancelChamberEffect: true,
-        logMessage: 'STRIP SHELL TRIGGERED: Ejected the opponent’s live round mid-pull!',
-      };
-    },
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      peekNextChamber: true,
+      logMessage: 'STRIP SHELL! Harmless click — peeking at next chamber!',
+    }),
   },
 
   purple_jinxpin: {
@@ -111,49 +55,20 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     name: 'PAD CYLINDER',
     color: 'purple',
     category: 'purple',
-    shortTag: 'PAD + BLANK',
+    shortTag: 'PAD + DISCARD',
     description:
-      'Pad cylinder with Blank shells. Self-shot keeps turn; opponent shot jams their next turn.',
-    chamberEffectText: 'Pad cylinder with Blanks. Self-shot keeps turn; foe skips turn.',
-    tableTrapText: 'Pads chamber & forces attacker to discard 1 card.',
+      'Pads the cylinder with a Blank shell (0 DMG) & forces the target to discard 1 card.',
+    chamberEffectText: 'Pad cylinder with Blank (0 DMG) + target discards 1 card.',
     accentColor: '#84cc16',
     borderColor: '#588448',
     headerBgColor: '#588448',
     artBgColor: '#2f3d27',
     badgeText: 'CYLINDER • PAD',
-    onChamberFire: (ctx) => {
-      if (ctx.cancelledChamberEffect) {
-        return {
-          damageToTarget: 0,
-          damageToShooter: 0,
-          keepTurn: false,
-          logMessage: 'PAD CYLINDER was nullified!',
-        };
-      }
-      const selfShot = ctx.aim === 'self';
-      return {
-        damageToTarget: 0,
-        damageToShooter: 0,
-        keepTurn: selfShot,
-        skipShooterNextTurn: !selfShot,
-        peekNextChamber: selfShot,
-        logMessage: selfShot
-          ? 'PAD CYLINDER! Padded blank clicked safely — you keep your turn!'
-          : 'PAD CYLINDER! Cylinder padded & opponent’s mechanism is jammed!',
-      };
-    },
-    onTableTrigger: (ctx) => {
-      const isOppShot = ctx.shooter !== ctx.trapOwner;
-      if (!isOppShot) {
-        return { triggered: false, logMessage: '' };
-      }
-      return {
-        triggered: true,
-        discardShooterCard: true,
-        cancelChamberEffect: true,
-        logMessage: 'PAD CYLINDER SPRUNG: Padded the chamber & stripped 1 card from foe!',
-      };
-    },
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      discardTargetCard: true,
+      logMessage: 'PAD CYLINDER! Blank click — target drops 1 card!',
+    }),
   },
 
   red_hollowpoint: {
@@ -161,53 +76,19 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     name: 'HEAVY SLUG',
     color: 'red',
     category: 'red',
-    shortTag: '1 DMG + DRAW 1',
+    shortTag: '2 DMG SHELL',
     description:
-      'Heavy brass load. Deals 1 DMG & draws 1 card. As slot reaction: deals 1 counter-DMG.',
-    chamberEffectText: 'Heavy brass shell: 1 DMG + draw 1 card from deck.',
-    tableTrapText: 'Deals 1 counter-DMG if opponent fires a Live round.',
+      'Heavy brass load. Loads a high-caliber Live shell that deals 2 DMG to the target.',
+    chamberEffectText: 'Heavy brass shell: Deals 2 DMG to whoever the gun targets.',
     accentColor: '#f97316',
     borderColor: '#b93829',
     headerBgColor: '#b93829',
     artBgColor: '#4c1d1a',
     badgeText: 'LIVE • HEAVY',
-    onChamberFire: (ctx) => {
-      if (ctx.cancelledChamberEffect) {
-        return {
-          damageToTarget: 0,
-          damageToShooter: 0,
-          keepTurn: false,
-          logMessage: 'HEAVY SLUG was nullified!',
-        };
-      }
-      if (ctx.reflectedToShooter) {
-        return {
-          damageToTarget: 0,
-          damageToShooter: 1,
-          keepTurn: false,
-          logMessage: 'HEAVY SLUG reflected! Shooter takes 1 DMG.',
-        };
-      }
-      return {
-        damageToTarget: 1,
-        damageToShooter: 0,
-        keepTurn: false,
-        drawCards: 1,
-        logMessage: 'HEAVY SLUG FIRED! 1 DMG + shooter draws 1 card.',
-      };
-    },
-    onTableTrigger: (ctx) => {
-      const isOpponentRed =
-        ctx.shooter !== ctx.trapOwner && ctx.chamberCard?.def.color === 'red';
-      if (!isOpponentRed) {
-        return { triggered: false, logMessage: '' };
-      }
-      return {
-        triggered: true,
-        damageShooter: 1,
-        logMessage: 'HEAVY SLUG COUNTER: Dealt 1 counter-DMG to the shooter!',
-      };
-    },
+    onChamberFire: () => ({
+      damageToTarget: 2,
+      logMessage: 'HEAVY SLUG FIRED! Massive 2 Brass DMG!',
+    }),
   },
 
   blue_hairtrigger: {
@@ -215,42 +96,20 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     name: 'HAIR TRIGGER',
     color: 'blue',
     category: 'blue',
-    shortTag: 'SAFE • DRAW 1',
+    shortTag: 'BLANK • DRAW 1',
     description:
-      'Polished silver blank. Self-shot keeps turn & draws 1 card. Steals bonus turn as trap.',
-    chamberEffectText: 'Silver blank: 0 DMG. Self-shot keeps turn & draws 1 card.',
-    tableTrapText: 'Steals opponent’s extra self-shot turn.',
+      'Polished silver blank (0 DMG). Both players draw 1 card when this chamber fires.',
+    chamberEffectText: 'Silver blank (0 DMG): Both players draw 1 card.',
     accentColor: '#38bdf8',
     borderColor: '#36639c',
     headerBgColor: '#36639c',
     artBgColor: '#223654',
     badgeText: 'BLANK • SPEED',
-    onChamberFire: (ctx) => {
-      const selfShot = ctx.aim === 'self';
-      return {
-        damageToTarget: 0,
-        damageToShooter: 0,
-        keepTurn: selfShot,
-        drawCards: selfShot ? 1 : 0,
-        logMessage: selfShot
-          ? 'HAIR TRIGGER! Safe click — keep your turn & draw 1 card!'
-          : 'HAIR TRIGGER! Silver blank click across the wood table.',
-      };
-    },
-    onTableTrigger: (ctx) => {
-      const isOppSelfSafe =
-        ctx.shooter !== ctx.trapOwner &&
-        ctx.aim === 'self' &&
-        (ctx.chamberCard === null || ctx.chamberCard.def.color === 'blue');
-      if (!isOppSelfSafe) {
-        return { triggered: false, logMessage: '' };
-      }
-      return {
-        triggered: true,
-        stealTurn: true,
-        logMessage: 'HAIR TRIGGER SPRUNG: Stole the opponent’s bonus turn!',
-      };
-    },
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      drawCardsForBoth: 1,
+      logMessage: 'HAIR TRIGGER! Safe click — both players draw 1 card!',
+    }),
   },
 
   purple_recoilcurse: {
@@ -258,45 +117,19 @@ export const CARD_DEFINITIONS: Record<CardId, CardDef> = {
     name: 'SPIN & RECOIL',
     color: 'purple',
     category: 'purple',
-    shortTag: 'FORCE NEXT SHOT',
+    shortTag: 'SPIN CYLINDER',
     description:
-      'Spins the cylinder & force-fires the next chamber at the shooter. Strips 1 card on defense.',
-    chamberEffectText: '0 DMG. Force-fires next chamber at the shooter!',
-    tableTrapText: 'Attacker discards 1 card when aiming at you.',
+      'Spins and shuffles all remaining chambers in the cylinder before firing (0 DMG).',
+    chamberEffectText: 'Spins remaining chambers in the drum (0 DMG blank).',
     accentColor: '#c084fc',
     borderColor: '#764594',
     headerBgColor: '#764594',
     artBgColor: '#382246',
-    badgeText: 'TRICK • RECOIL',
-    onChamberFire: (ctx) => {
-      if (ctx.cancelledChamberEffect) {
-        return {
-          damageToTarget: 0,
-          damageToShooter: 0,
-          keepTurn: false,
-          logMessage: 'SPIN & RECOIL was nullified!',
-        };
-      }
-      return {
-        damageToTarget: 0,
-        damageToShooter: 0,
-        keepTurn: false,
-        forceFireNextAtShooter: true,
-        logMessage: 'SPIN & RECOIL! Next chamber is force-fired at the shooter!',
-      };
-    },
-    onTableTrigger: (ctx) => {
-      const aimedAtOwner =
-        ctx.shooter !== ctx.trapOwner && ctx.target === ctx.trapOwner;
-      if (!aimedAtOwner) {
-        return { triggered: false, logMessage: '' };
-      }
-      return {
-        triggered: true,
-        discardShooterCard: true,
-        logMessage: 'SPIN & RECOIL: Forced the attacker to drop 1 card!',
-      };
-    },
+    badgeText: 'TRICK • SPIN',
+    onChamberFire: () => ({
+      damageToTarget: 0,
+      logMessage: 'SPIN & RECOIL! Cylinder spun — harmless metallic click!',
+    }),
   },
 };
 
@@ -588,32 +421,23 @@ export function decideAiLoadSelection(aiHand: CardInstance[]): CardInstance[] {
 
 export function decideAiTurnAction(
   aiHand: CardInstance[],
-  aiTrap: CardInstance | null,
   remainingCounts: { red: number; blue: number; purple: number; empty: number; remaining: number },
   aiHp: number
-): { trapCard: CardInstance | null; aim: AimChoice } {
-  let trapCard: CardInstance | null = null;
-  if (!aiTrap && aiHand.length > 0) {
-    const preferred =
-      aiHand.find((c) => c.def.color === 'red') ??
+): CardInstance | null {
+  if (aiHand.length === 0) return null;
+
+  const { red } = remainingCounts;
+  // If AI is low HP and there are live shells, prefer stripping/padding; otherwise load live or play tricks
+  if (aiHp <= 1 && red >= 2) {
+    return (
       aiHand.find((c) => c.def.color === 'blue') ??
-      aiHand[0];
-    trapCard = preferred;
+      aiHand.find((c) => c.def.color === 'purple') ??
+      aiHand[0]
+    );
   }
-
-  const { red, blue, empty, remaining } = remainingCounts;
-  const safeCount = blue + empty;
-  let aim: AimChoice = 'opponent';
-
-  if (remaining > 0) {
-    if (red === 0 && safeCount > 0) {
-      aim = 'self';
-    } else if (safeCount > red * 2 && aiHp >= 2 && Math.random() < 0.42) {
-      aim = 'self';
-    } else {
-      aim = 'opponent';
-    }
-  }
-
-  return { trapCard, aim };
+  return (
+    aiHand.find((c) => c.def.color === 'red') ??
+    aiHand.find((c) => c.def.color === 'purple') ??
+    aiHand[0]
+  );
 }

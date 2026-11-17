@@ -1,11 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActorSide,
-  AimChoice,
   CardId,
   CardInstance,
   ChamberSlot,
-  TableTriggerResult,
   TurnPhase,
 } from './types/game';
 import {
@@ -71,20 +69,19 @@ export const App: React.FC = () => {
 
   const [roundNumber, setRoundNumber] = useState<number>(1);
   const [turnNumber, setTurnNumber] = useState<number>(1);
-  const [activePlayer, setActivePlayer] = useState<ActorSide>('player');
   const [phase, setPhase] = useState<TurnPhase>('PLAYER_SELECT');
 
   const [statusBanner, setStatusBanner] = useState<string>(
-    'YOUR TURN — CHOOSE CARD & TARGET'
+    'SIMULTANEOUS TURN — CHOOSE YOUR CARD'
   );
   const [subBanner, setSubBanner] = useState<string>(
-    'Click a card to slide it onto LOCK IN SLOT, select Aim Chip, and ring the Brass Bell!'
+    'Pick a card and ring the Brass Bell. Both players place at the same time!'
   );
   const [opponentSpeech, setOpponentSpeech] = useState<string>(
     LADDER_OPPONENTS[0].tauntIntro
   );
 
-  // Shared 6-Chamber Cylinder (Starts with 1 Live + 5 Blanks, matching image_1.png & image_2.png)
+  // Shared 6-Chamber Cylinder (Starts with 1 Live + 5 Blanks)
   const [cylinderSlots, setCylinderSlots] = useState<ChamberSlot[]>(() =>
     buildShuffledRoundCylinder([createCardInstance('red_crimsonslug')])
   );
@@ -105,24 +102,18 @@ export const App: React.FC = () => {
   ]);
 
   const [selectedLoadCards, setSelectedLoadCards] = useState<CardInstance[]>([]);
-  const [selectedTrapCard, setSelectedTrapCard] = useState<CardInstance | null>(null);
+  const [selectedCard, setSelectedCard] = useState<CardInstance | null>(null);
 
-  // Active Mid-Table Slot Cards (SLOT 1 / SLOT 2)
-  const [playerTableTrap, setPlayerTableTrap] = useState<CardInstance | null>(null);
-  const [opponentTableTrap, setOpponentTableTrap] = useState<CardInstance | null>(null);
-  const [revealedTrapOwner, setRevealedTrapOwner] = useState<ActorSide | null>(null);
+  // Simultaneously Placed Mid-Table Cards (this turn)
+  const [playerPlayedCard, setPlayerPlayedCard] = useState<CardInstance | null>(null);
+  const [opponentPlayedCard, setOpponentPlayedCard] = useState<CardInstance | null>(null);
 
-  // Aim & Skip-Turn flags
-  const [playerAim, setPlayerAim] = useState<AimChoice>('opponent');
-  const [opponentAim, setOpponentAim] = useState<AimChoice>('opponent');
-  const [playerSkipNextTurn, setPlayerSkipNextTurn] = useState<boolean>(false);
-  const [opponentSkipNextTurn, setOpponentSkipNextTurn] = useState<boolean>(false);
+  // Single Gun Random Target ('player' or 'opponent')
+  const [randomGunTarget, setRandomGunTarget] = useState<ActorSide>('opponent');
 
   // Animation & FX Flags
-  const [playerMuzzleFlash, setPlayerMuzzleFlash] = useState<boolean>(false);
-  const [opponentMuzzleFlash, setOpponentMuzzleFlash] = useState<boolean>(false);
-  const [playerDryFire, setPlayerDryFire] = useState<boolean>(false);
-  const [opponentDryFire, setOpponentDryFire] = useState<boolean>(false);
+  const [gunMuzzleFlash, setGunMuzzleFlash] = useState<boolean>(false);
+  const [gunDryFire, setGunDryFire] = useState<boolean>(false);
   const [opponentDamagedAnim, setOpponentDamagedAnim] = useState<boolean>(false);
   const [playerDamagedFlash, setPlayerDamagedFlash] = useState<boolean>(false);
   const [shakeIntensity, setShakeIntensity] = useState<number>(0);
@@ -168,8 +159,7 @@ export const App: React.FC = () => {
     (
       nextRound: number,
       currentPHand: CardInstance[],
-      currentOHand: CardInstance[],
-      nextActive: ActorSide
+      currentOHand: CardInstance[]
     ) => {
       const pNeeded = Math.max(0, 3 - currentPHand.length);
       const oNeeded = Math.max(0, 4 - currentOHand.length);
@@ -188,34 +178,26 @@ export const App: React.FC = () => {
 
       setCylinderSlots(freshSlots);
       setCurrentChamberIdx(0);
-      setPlayerTableTrap(null);
-      setOpponentTableTrap(null);
-      setRevealedTrapOwner(null);
+      setPlayerPlayedCard(null);
+      setOpponentPlayedCard(null);
       setSelectedLoadCards([]);
-      setSelectedTrapCard(null);
+      setSelectedCard(null);
       setPeekedSlotInfo(null);
       setPlayerHand(nextPHand);
       setOpponentHand(nextOHand);
       setRoundNumber(nextRound);
-      setActivePlayer(nextActive);
       setPhase('SPIN_CYLINDERS');
       soundEngine.playCylinderSpin();
       setStatusBanner(`ROUND ${nextRound} — SPINNING 6-CHAMBER CYLINDER!`);
       setSubBanner('Fresh brass & blank shells loaded into the drum...');
 
       schedule(() => {
-        if (nextActive === 'player') {
-          setPhase('PLAYER_SELECT');
-          setStatusBanner('YOUR TURN — CHOOSE CARD & TARGET');
-          setSubBanner('Select a card to Lock In, pick your Aim Chip, and ring the Bell!');
-        } else {
-          setPhase('AI_THINKING');
-          setStatusBanner(`${opponent.name}'S TURN...`);
-          setSubBanner('Opponent is eyeing the wood slots and cylinder...');
-        }
+        setPhase('PLAYER_SELECT');
+        setStatusBanner('SIMULTANEOUS TURN — CHOOSE YOUR CARD');
+        setSubBanner('Select a card & ring the Brass Bell to place simultaneously!');
       }, 900);
     },
-    [drawFromSharedDeck, opponent.name]
+    [drawFromSharedDeck]
   );
 
   // Start a fresh 1v1 Match against a Ladder Opponent
@@ -231,14 +213,9 @@ export const App: React.FC = () => {
       setPlayerHp(playerMaxHp);
       setOpponentHp(targetOpp.maxHp);
       setTurnNumber(1);
-      setPlayerSkipNextTurn(false);
-      setOpponentSkipNextTurn(false);
-      setPlayerAim('opponent');
-      setOpponentAim('opponent');
-      setPlayerMuzzleFlash(false);
-      setOpponentMuzzleFlash(false);
-      setPlayerDryFire(false);
-      setOpponentDryFire(false);
+      setRandomGunTarget('opponent');
+      setGunMuzzleFlash(false);
+      setGunDryFire(false);
       setOpponentDamagedAnim(false);
       setPlayerDamagedFlash(false);
       setOpponentSpeech(targetOpp.tauntIntro);
@@ -247,11 +224,10 @@ export const App: React.FC = () => {
         buildShuffledRoundCylinder([createCardInstance('red_crimsonslug')])
       );
       setCurrentChamberIdx(0);
-      setPlayerTableTrap(null);
-      setOpponentTableTrap(null);
-      setRevealedTrapOwner(null);
+      setPlayerPlayedCard(null);
+      setOpponentPlayedCard(null);
       setSelectedLoadCards([]);
-      setSelectedTrapCard(null);
+      setSelectedCard(null);
       setPeekedSlotInfo(null);
       setPlayerHand(createHeroTrioHand());
       setOpponentHand([
@@ -261,98 +237,160 @@ export const App: React.FC = () => {
         createCardInstance('blue_hairtrigger'),
       ]);
       setRoundNumber(1);
-      setActivePlayer('player');
       setPhase('PLAYER_SELECT');
-      setStatusBanner('YOUR TURN — CHOOSE CARD & TARGET');
+      setStatusBanner('SIMULTANEOUS TURN — CHOOSE YOUR CARD');
       setSubBanner(
-        'Click a card to slide it onto LOCK IN SLOT, select Aim Chip, and ring the Brass Bell!'
+        'Pick a card and ring the Brass Bell. Both players place at the same time!'
       );
     },
     [syncDeckCounts]
   );
 
-  // Full Turn Resolution Order (Resolve Locked Card -> Check Opponent Slot Counter -> Fire Revolver)
-  const executeShotSequence = useCallback(
+  // Apply both simultaneously placed cards to the shared 6-chamber cylinder
+  const applySimultaneousCardsToCylinder = useCallback(
+    (
+      pCard: CardInstance | null,
+      oCard: CardInstance | null,
+      slots: ChamberSlot[],
+      chamberIdx: number
+    ): ChamberSlot[] => {
+      let updated = slots.map((s) => ({ ...s }));
+      const playedCards = [pCard, oCard].filter(
+        (c): c is CardInstance => c !== null
+      );
+
+      let shouldSpinUnspent = false;
+
+      for (const card of playedCards) {
+        const unspentIndices = updated
+          .map((s, idx) => (!s.spent && idx >= chamberIdx ? idx : -1))
+          .filter((idx) => idx !== -1);
+        if (unspentIndices.length === 0) continue;
+
+        if (card.def.id === 'blue_silverblank') {
+          // STRIP SHELL: Strip a Live (red) unspent chamber if one exists, otherwise load into an empty slot
+          const redIdx = unspentIndices.find(
+            (idx) => updated[idx].card?.def.color === 'red'
+          );
+          const targetIdx =
+            redIdx ??
+            unspentIndices.find((idx) => updated[idx].card === null) ??
+            unspentIndices[0];
+          updated[targetIdx] = {
+            ...updated[targetIdx],
+            card,
+            spent: false,
+            revealed: false,
+          };
+          soundEngine.playShellClink(1.25);
+        } else if (card.def.color === 'red') {
+          // LOAD LIVE / HEAVY SLUG: Prefer an empty/non-red unspent chamber
+          const nonRedIndices = unspentIndices.filter(
+            (idx) => updated[idx].card?.def.color !== 'red'
+          );
+          const pool = nonRedIndices.length > 0 ? nonRedIndices : unspentIndices;
+          const targetIdx = pool[Math.floor(Math.random() * pool.length)];
+          updated[targetIdx] = {
+            ...updated[targetIdx],
+            card,
+            spent: false,
+            revealed: false,
+          };
+          soundEngine.playShellClink(0.95);
+        } else {
+          // PAD CYLINDER / SPIN & RECOIL
+          const emptyIndices = unspentIndices.filter(
+            (idx) => updated[idx].card === null
+          );
+          const pool = emptyIndices.length > 0 ? emptyIndices : unspentIndices;
+          const targetIdx = pool[Math.floor(Math.random() * pool.length)];
+          updated[targetIdx] = {
+            ...updated[targetIdx],
+            card,
+            spent: false,
+            revealed: false,
+          };
+          if (card.def.id === 'purple_recoilcurse') {
+            shouldSpinUnspent = true;
+          }
+          soundEngine.playCylinderSpin();
+        }
+      }
+
+      if (shouldSpinUnspent) {
+        const unspentCards = updated.slice(chamberIdx).map((s) => s.card);
+        const shuffled = shuffleArray(unspentCards);
+        updated = updated.map((s, idx) =>
+          idx >= chamberIdx
+            ? { ...s, card: shuffled[idx - chamberIdx], revealed: false }
+            : s
+        );
+      }
+
+      return updated;
+    },
+    []
+  );
+
+  // Full Simultaneous Turn Resolution:
+  // 1. Reveal both placed cards -> 2. Randomly pick gun target -> 3. Fire single gun once -> 4. Advance
+  const executeSimultaneousTurn = useCallback(
     (params: {
-      shooter: ActorSide;
-      aim: AimChoice;
+      pCard: CardInstance | null;
+      oCard: CardInstance | null;
       chamberIdx: number;
       slots: ChamberSlot[];
       pHand: CardInstance[];
       oHand: CardInstance[];
-      pTrap: CardInstance | null;
-      oTrap: CardInstance | null;
       pHp: number;
       oHp: number;
-      pSkip: boolean;
-      oSkip: boolean;
       currentRound: number;
     }) => {
       const {
-        shooter,
-        aim,
+        pCard,
+        oCard,
         chamberIdx,
         slots,
         pHand,
         oHand,
-        pTrap,
-        oTrap,
         pHp,
         oHp,
-        pSkip,
-        oSkip,
         currentRound,
       } = params;
 
-      const isPlayerShooter = shooter === 'player';
-      const target: ActorSide =
-        aim === 'self' ? shooter : isPlayerShooter ? 'opponent' : 'player';
-      const defender: ActorSide = isPlayerShooter ? 'opponent' : 'player';
-
-      // C.1: Reveal current chamber card (or Empty/Blank)
-      const workingSlots = slots.map((s, idx) =>
-        idx === chamberIdx ? { ...s, revealed: true } : s
-      );
-      const chamberCard = workingSlots[chamberIdx]?.card ?? null;
-      setCylinderSlots(workingSlots);
-      setCurrentChamberIdx(chamberIdx);
-      setPhase('RESOLVE_CHAMBER');
-      soundEngine.playShellClink(1.1);
-
-      const chamberLabel = chamberCard
-        ? `${chamberCard.def.name} (${chamberCard.def.badgeText})`
-        : 'SILVER BLANK CHAMBER';
-      setStatusBanner(`CHAMBER #${chamberIdx + 1}: ${chamberLabel}`);
+      setPhase('REVEAL_CARDS');
+      soundEngine.playCardSlide();
+      setStatusBanner('CARDS REVEALED — MODIFYING CYLINDER!');
       setSubBanner(
-        `${isPlayerShooter ? 'YOU' : opponent.name} aimed at ${
-          target === 'player' ? 'YOU' : opponent.name
-        }...`
+        `You: ${pCard ? pCard.def.name : 'PASS'}  ·  ${opponent.name}: ${
+          oCard ? oCard.def.name : 'PASS'
+        }`
       );
 
-      // C.2: Check if defender has an active mid-table slot card matching this action
       schedule(() => {
-        const defenderTrap = defender === 'player' ? pTrap : oTrap;
-        let trapResult: TableTriggerResult = { triggered: false, logMessage: '' };
-        let nextPTrap = pTrap;
-        let nextOTrap = oTrap;
-        let workingPHand = [...pHand];
-        let workingOHand = [...oHand];
-        let workingPHp = pHp;
-        let workingOHp = oHp;
+        // Randomly pick who the single gun shoots at ('player' or 'opponent')
+        const target: ActorSide = Math.random() < 0.5 ? 'opponent' : 'player';
+        setRandomGunTarget(target);
 
-        if (defenderTrap) {
-          trapResult = defenderTrap.def.onTableTrigger({
-            trapOwner: defender,
-            shooter,
-            target,
-            aim,
-            chamberCard,
-          });
-        }
+        const workingSlots = slots.map((s, idx) =>
+          idx === chamberIdx ? { ...s, revealed: true } : s
+        );
+        const chamberCard = workingSlots[chamberIdx]?.card ?? null;
+        setCylinderSlots(workingSlots);
+        setCurrentChamberIdx(chamberIdx);
+        setPhase('RESOLVE_CHAMBER');
+        soundEngine.playShellClink(1.1);
 
-        const runFireResolution = () => {
-          setRevealedTrapOwner(null);
-          setPhase(isPlayerShooter ? 'FIRE_PLAYER' : 'FIRE_OPPONENT');
+        const chamberLabel = chamberCard
+          ? `${chamberCard.def.name} (${chamberCard.def.badgeText})`
+          : 'SILVER BLANK CHAMBER';
+        setStatusBanner(
+          `GUN AIMED AT ${target === 'player' ? 'YOU' : opponent.name}!`
+        );
+        setSubBanner(`Chamber #${chamberIdx + 1}: ${chamberLabel}`);
+
+        schedule(() => {
+          setPhase(target === 'opponent' ? 'FIRE_OPPONENT' : 'FIRE_PLAYER');
 
           workingSlots[chamberIdx] = {
             ...workingSlots[chamberIdx],
@@ -365,31 +403,27 @@ export const App: React.FC = () => {
           }
           setCylinderSlots([...workingSlots]);
 
-          let fireRes;
-          if (chamberCard) {
-            fireRes = chamberCard.def.onChamberFire({
-              shooter,
-              target,
-              aim,
-              chamberIndex: chamberIdx,
-              card: chamberCard,
-              reflectedToShooter: Boolean(trapResult.reflectDamage),
-              cancelledChamberEffect: Boolean(trapResult.cancelChamberEffect),
-            });
-          } else {
-            const selfSafe = aim === 'self' && !trapResult.cancelChamberEffect;
-            fireRes = {
-              damageToTarget: 0,
-              damageToShooter: 0,
-              keepTurn: selfSafe,
-              logMessage: selfSafe
-                ? 'SILVER BLANK! Self-shot safe — you keep your turn!'
-                : 'SILVER BLANK! Harmless metallic click.',
-            };
-          }
+          const fireRes = chamberCard
+            ? chamberCard.def.onChamberFire({
+                target,
+                chamberIndex: chamberIdx,
+                card: chamberCard,
+              })
+            : {
+                damageToTarget: 0,
+                logMessage: 'SILVER BLANK! Harmless metallic click.',
+              };
 
-          // Apply damage
+          let workingPHp = pHp;
+          let workingOHp = oHp;
+          let workingPHand = [...pHand];
+          let workingOHand = [...oHand];
+
           if (fireRes.damageToTarget > 0) {
+            soundEngine.playGunshotBlast(false);
+            setShakeIntensity(1.15);
+            setGunMuzzleFlash(true);
+
             if (target === 'opponent') {
               workingOHp = Math.max(0, workingOHp - fireRes.damageToTarget);
               setOpponentHp(workingOHp);
@@ -408,39 +442,27 @@ export const App: React.FC = () => {
               workingPHp = Math.max(0, workingPHp - fireRes.damageToTarget);
               setPlayerHp(workingPHp);
               setPlayerDamagedFlash(true);
-              if (!isPlayerShooter) {
-                setOpponentSpeech(
-                  opponent.tauntHitPlayer[
-                    Math.floor(Math.random() * opponent.tauntHitPlayer.length)
-                  ]
-                );
-              }
+              setOpponentSpeech(
+                opponent.tauntHitPlayer[
+                  Math.floor(Math.random() * opponent.tauntHitPlayer.length)
+                ]
+              );
             }
-          }
-
-          if (fireRes.damageToShooter > 0) {
-            if (shooter === 'player') {
-              workingPHp = Math.max(0, workingPHp - fireRes.damageToShooter);
-              setPlayerHp(workingPHp);
-              setPlayerDamagedFlash(true);
-            } else {
-              workingOHp = Math.max(0, workingOHp - fireRes.damageToShooter);
-              setOpponentHp(workingOHp);
-              setOpponentDamagedAnim(true);
-            }
-          }
-
-          const totalBang =
-            fireRes.damageToTarget > 0 || fireRes.damageToShooter > 0;
-          if (totalBang) {
-            soundEngine.playGunshotBlast(false);
-            setShakeIntensity(1.15);
-            if (isPlayerShooter) setPlayerMuzzleFlash(true);
-            else setOpponentMuzzleFlash(true);
           } else {
             soundEngine.playDryFireClick();
-            if (isPlayerShooter) setPlayerDryFire(true);
-            else setOpponentDryFire(true);
+            setGunDryFire(true);
+            if (target === 'player') {
+              setStats((s) => ({
+                ...s,
+                selfShotsSurvived: s.selfShotsSurvived + 1,
+              }));
+            } else {
+              setOpponentSpeech(
+                opponent.tauntSelfSafe[
+                  Math.floor(Math.random() * opponent.tauntSelfSafe.length)
+                ]
+              );
+            }
           }
 
           if (fireRes.discardTargetCard) {
@@ -459,18 +481,16 @@ export const App: React.FC = () => {
             }
           }
 
-          if (fireRes.drawCards && fireRes.drawCards > 0) {
-            const extra = drawFromSharedDeck(fireRes.drawCards);
-            if (isPlayerShooter) {
-              workingPHand = [...workingPHand, ...extra];
-              setPlayerHand(workingPHand);
-            } else {
-              workingOHand = [...workingOHand, ...extra];
-              setOpponentHand(workingOHand);
-            }
+          if (fireRes.drawCardsForBoth && fireRes.drawCardsForBoth > 0) {
+            const pExtra = drawFromSharedDeck(fireRes.drawCardsForBoth);
+            const oExtra = drawFromSharedDeck(fireRes.drawCardsForBoth);
+            workingPHand = [...workingPHand, ...pExtra];
+            workingOHand = [...workingOHand, ...oExtra];
+            setPlayerHand(workingPHand);
+            setOpponentHand(workingOHand);
           }
 
-          if (fireRes.peekNextChamber && isPlayerShooter) {
+          if (fireRes.peekNextChamber) {
             const nextSlot = workingSlots[chamberIdx + 1];
             if (nextSlot) {
               const peekLabel = nextSlot.card
@@ -480,42 +500,23 @@ export const App: React.FC = () => {
             }
           }
 
-          let nextPSkip = pSkip;
-          let nextOSkip = oSkip;
-          if (fireRes.skipShooterNextTurn) {
-            if (shooter === 'player') nextPSkip = true;
-            else nextOSkip = true;
-            setPlayerSkipNextTurn(nextPSkip);
-            setOpponentSkipNextTurn(nextOSkip);
-          }
-
-          if (fireRes.keepTurn && !trapResult.stealTurn) {
-            if (isPlayerShooter) {
-              setStats((s) => ({
-                ...s,
-                selfShotsSurvived: s.selfShotsSurvived + 1,
-              }));
-            } else {
-              setOpponentSpeech(
-                opponent.tauntSelfSafe[
-                  Math.floor(Math.random() * opponent.tauntSelfSafe.length)
-                ]
-              );
-            }
-          }
-
           setStatusBanner(fireRes.logMessage);
           setSubBanner(
-            trapResult.triggered ? trapResult.logMessage : 'Resolving revolver shot...'
+            `Single shot fired at ${target === 'player' ? 'YOU' : opponent.name}.`
           );
 
           schedule(() => {
-            setPlayerMuzzleFlash(false);
-            setOpponentMuzzleFlash(false);
-            setPlayerDryFire(false);
-            setOpponentDryFire(false);
+            setGunMuzzleFlash(false);
+            setGunDryFire(false);
             setOpponentDamagedAnim(false);
             setPlayerDamagedFlash(false);
+
+            // Discard both played cards after the turn resolves
+            if (pCard) discardPileRef.current.push(pCard);
+            if (oCard) discardPileRef.current.push(oCard);
+            syncDeckCounts();
+            setPlayerPlayedCard(null);
+            setOpponentPlayedCard(null);
 
             if (workingOHp <= 0) {
               soundEngine.playVictoryFanfare();
@@ -534,243 +535,42 @@ export const App: React.FC = () => {
 
             const nextIdx = chamberIdx + 1;
 
-            if (fireRes.forceFireNextAtShooter && nextIdx < 6) {
-              executeShotSequence({
-                shooter,
-                aim: 'self',
-                chamberIdx: nextIdx,
-                slots: workingSlots,
-                pHand: workingPHand,
-                oHand: workingOHand,
-                pTrap: nextPTrap,
-                oTrap: nextOTrap,
-                pHp: workingPHp,
-                oHp: workingOHp,
-                pSkip: nextPSkip,
-                oSkip: nextOSkip,
-                currentRound,
-              });
-              return;
-            }
-
             // Reload when all 6 chambers are spent
             if (nextIdx >= 6) {
-              if (nextPTrap) discardPileRef.current.push(nextPTrap);
-              if (nextOTrap) discardPileRef.current.push(nextOTrap);
-              syncDeckCounts();
               setPhase('RELOAD_ROUND');
               setStatusBanner('ALL 6 CHAMBERS SPENT — RELOADING CYLINDER');
               setSubBanner('Replenishing hands & loading fresh shells...');
               schedule(() => {
-                const nextStarter: ActorSide =
-                  fireRes.keepTurn && !trapResult.stealTurn ? shooter : defender;
-                beginNewRound(
-                  currentRound + 1,
-                  workingPHand,
-                  workingOHand,
-                  nextStarter
-                );
+                beginNewRound(currentRound + 1, workingPHand, workingOHand);
               }, 1050);
               return;
             }
 
-            // Replenish player hand if empty so foreground cards stay rich
+            // Replenish hands if empty
             if (workingPHand.length === 0) {
               workingPHand = drawFromSharedDeck(3);
               setPlayerHand(workingPHand);
+            }
+            if (workingOHand.length === 0) {
+              workingOHand = drawFromSharedDeck(3);
+              setOpponentHand(workingOHand);
             }
 
             setCurrentChamberIdx(nextIdx);
             setTurnNumber((t) => t + 1);
             setStats((s) => ({ ...s, turnsPlayed: s.turnsPlayed + 1 }));
-
-            let nextActive: ActorSide =
-              fireRes.keepTurn && !trapResult.stealTurn ? shooter : defender;
-
-            if (nextActive === 'player' && nextPSkip) {
-              nextPSkip = false;
-              setPlayerSkipNextTurn(false);
-              nextActive = 'opponent';
-            } else if (nextActive === 'opponent' && nextOSkip) {
-              nextOSkip = false;
-              setOpponentSkipNextTurn(false);
-              nextActive = 'player';
-            }
-
-            setActivePlayer(nextActive);
-            if (nextActive === 'player') {
-              setSelectedTrapCard(null);
-              setPhase('PLAYER_SELECT');
-              setStatusBanner('YOUR TURN — CHOOSE CARD & TARGET');
-              setSubBanner(
-                `Chamber #${nextIdx + 1} of 6 ready. Select a card or Aim & ring the Bell!`
-              );
-            } else {
-              setPhase('AI_THINKING');
-              setStatusBanner(`${opponent.name}'S TURN...`);
-              setSubBanner('Opponent is choosing their card and target...');
-            }
+            setSelectedCard(null);
+            setPhase('PLAYER_SELECT');
+            setStatusBanner('SIMULTANEOUS TURN — CHOOSE YOUR CARD');
+            setSubBanner(
+              `Chamber #${nextIdx + 1} of 6 ready. Pick a card & ring the Bell!`
+            );
           }, 950);
-        };
-
-        if (trapResult.triggered && defenderTrap) {
-          setPhase('RESOLVE_TRAP');
-          setRevealedTrapOwner(defender);
-          soundEngine.playAimTokenFlip();
-          setStatusBanner(trapResult.logMessage);
-          setSubBanner(`Mid-table slot card ${defenderTrap.def.name} triggered!`);
-
-          if (trapResult.damageShooter && trapResult.damageShooter > 0) {
-            if (shooter === 'player') {
-              workingPHp = Math.max(0, workingPHp - trapResult.damageShooter);
-              setPlayerHp(workingPHp);
-              setPlayerDamagedFlash(true);
-            } else {
-              workingOHp = Math.max(0, workingOHp - trapResult.damageShooter);
-              setOpponentHp(workingOHp);
-              setOpponentDamagedAnim(true);
-            }
-          }
-
-          if (trapResult.discardShooterCard) {
-            if (shooter === 'player' && workingPHand.length > 0) {
-              const idx = Math.floor(Math.random() * workingPHand.length);
-              const [removed] = workingPHand.splice(idx, 1);
-              discardPileRef.current.push(removed);
-              syncDeckCounts();
-              setPlayerHand([...workingPHand]);
-            } else if (shooter === 'opponent' && workingOHand.length > 0) {
-              const idx = Math.floor(Math.random() * workingOHand.length);
-              const [removed] = workingOHand.splice(idx, 1);
-              discardPileRef.current.push(removed);
-              syncDeckCounts();
-              setOpponentHand([...workingOHand]);
-            }
-          }
-
-          discardPileRef.current.push(defenderTrap);
-          syncDeckCounts();
-          if (defender === 'player') {
-            nextPTrap = null;
-            setPlayerTableTrap(null);
-          } else {
-            nextOTrap = null;
-            setOpponentTableTrap(null);
-          }
-
-          schedule(runFireResolution, 950);
-        } else {
-          runFireResolution();
-        }
-      }, 750);
+        }, 750);
+      }, 850);
     },
     [opponent, drawFromSharedDeck, beginNewRound, syncDeckCounts]
   );
-
-  // Apply active card manipulation to cylinder when locked in
-  const applyLockedCardToCylinder = useCallback(
-    (card: CardInstance, slots: ChamberSlot[], chamberIdx: number): ChamberSlot[] => {
-      const updated = slots.map((s) => ({ ...s }));
-      if (card.def.color === 'red') {
-        // LOAD LIVE / HEAVY SLUG: Loads a Live brass shell into the current or random unspent chamber
-        updated[chamberIdx] = {
-          ...updated[chamberIdx],
-          card,
-          spent: false,
-          revealed: false,
-        };
-        soundEngine.playShellClink(0.95);
-      } else if (card.def.color === 'blue') {
-        // STRIP SHELL / HAIR TRIGGER: Strips any live round from the current chamber and replaces with Blank
-        updated[chamberIdx] = {
-          ...updated[chamberIdx],
-          card,
-          spent: false,
-          revealed: false,
-        };
-        soundEngine.playShellClink(1.25);
-      } else {
-        // PAD CYLINDER / SPIN & RECOIL: Pads remaining empty slots or current chamber
-        updated[chamberIdx] = {
-          ...updated[chamberIdx],
-          card,
-          spent: false,
-          revealed: false,
-        };
-        soundEngine.playCylinderSpin();
-      }
-      return updated;
-    },
-    []
-  );
-
-  // Triggered when AI_THINKING phase begins
-  useEffect(() => {
-    if (phase !== 'AI_THINKING') return;
-
-    const timer = window.setTimeout(() => {
-      const remaining = countChamberCardTypes(cylinderSlots);
-      const aiAction = decideAiTurnAction(
-        opponentHand,
-        opponentTableTrap,
-        remaining,
-        opponentHp
-      );
-
-      let nextOHand = [...opponentHand];
-      let nextOTrap = opponentTableTrap;
-      let nextSlots = cylinderSlots;
-
-      if (aiAction.trapCard) {
-        nextOHand = nextOHand.filter((c) => c.uid !== aiAction.trapCard!.uid);
-        nextOTrap = aiAction.trapCard;
-        setOpponentHand(nextOHand);
-        setOpponentTableTrap(nextOTrap);
-        nextSlots = applyLockedCardToCylinder(
-          aiAction.trapCard,
-          cylinderSlots,
-          currentChamberIdx
-        );
-        setCylinderSlots(nextSlots);
-        soundEngine.playCardSlide();
-      }
-
-      setOpponentAim(aiAction.aim);
-
-      executeShotSequence({
-        shooter: 'opponent',
-        aim: aiAction.aim,
-        chamberIdx: currentChamberIdx,
-        slots: nextSlots,
-        pHand: playerHand,
-        oHand: nextOHand,
-        pTrap: playerTableTrap,
-        oTrap: nextOTrap,
-        pHp: playerHp,
-        oHp: opponentHp,
-        pSkip: playerSkipNextTurn,
-        oSkip: opponentSkipNextTurn,
-        currentRound: roundNumber,
-      });
-    }, 950);
-
-    return () => window.clearTimeout(timer);
-  }, [
-    phase,
-    cylinderSlots,
-    opponentHand,
-    opponentTableTrap,
-    opponentHp,
-    currentChamberIdx,
-    playerHand,
-    playerTableTrap,
-    playerHp,
-    playerSkipNextTurn,
-    opponentSkipNextTurn,
-    roundNumber,
-    executeShotSequence,
-    applyLockedCardToCylinder,
-  ]);
 
   // Card Click Handler: slides card onto LOCK IN SLOT
   const handleSelectPlayerCard = useCallback(
@@ -783,7 +583,7 @@ export const App: React.FC = () => {
           return [...prev, card];
         });
       } else if (phase === 'PLAYER_SELECT') {
-        setSelectedTrapCard((prev) => (prev?.uid === card.uid ? null : card));
+        setSelectedCard((prev) => (prev?.uid === card.uid ? null : card));
       }
     },
     [phase]
@@ -802,64 +602,64 @@ export const App: React.FC = () => {
     setSubBanner(newCard.def.chamberEffectText);
   }, []);
 
-  // Brass Bell / LOCK IN Handler
+  // Brass Bell / LOCK IN Handler — Both players place cards at the exact same time!
   const handleRingBell = useCallback(() => {
-    if (phase === 'PLAYER_SELECT') {
-      let nextPHand = [...playerHand];
-      let nextPTrap = playerTableTrap;
-      let nextSlots = cylinderSlots;
+    if (phase !== 'PLAYER_SELECT') return;
 
-      if (selectedTrapCard) {
-        nextPHand = nextPHand.filter((c) => c.uid !== selectedTrapCard.uid);
-        nextPTrap = selectedTrapCard;
-        setPlayerHand(nextPHand);
-        setPlayerTableTrap(nextPTrap);
-        nextSlots = applyLockedCardToCylinder(
-          selectedTrapCard,
-          cylinderSlots,
-          currentChamberIdx
-        );
-        setCylinderSlots(nextSlots);
-        setSelectedTrapCard(null);
-      }
-
-      setOpponentSpeech(
-        opponent.tauntLockIn[Math.floor(Math.random() * opponent.tauntLockIn.length)]
-      );
-
-      executeShotSequence({
-        shooter: 'player',
-        aim: playerAim,
-        chamberIdx: currentChamberIdx,
-        slots: nextSlots,
-        pHand: nextPHand,
-        oHand: opponentHand,
-        pTrap: nextPTrap,
-        oTrap: opponentTableTrap,
-        pHp: playerHp,
-        oHp: opponentHp,
-        pSkip: playerSkipNextTurn,
-        oSkip: opponentSkipNextTurn,
-        currentRound: roundNumber,
-      });
+    let nextPHand = [...playerHand];
+    const pCard = selectedCard;
+    if (pCard) {
+      nextPHand = nextPHand.filter((c) => c.uid !== pCard.uid);
+      setPlayerHand(nextPHand);
+      setSelectedCard(null);
     }
+
+    const remaining = countChamberCardTypes(cylinderSlots);
+    const oCard = decideAiTurnAction(opponentHand, remaining, opponentHp);
+    let nextOHand = [...opponentHand];
+    if (oCard) {
+      nextOHand = nextOHand.filter((c) => c.uid !== oCard.uid);
+      setOpponentHand(nextOHand);
+    }
+
+    setPlayerPlayedCard(pCard);
+    setOpponentPlayedCard(oCard);
+
+    const nextSlots = applySimultaneousCardsToCylinder(
+      pCard,
+      oCard,
+      cylinderSlots,
+      currentChamberIdx
+    );
+    setCylinderSlots(nextSlots);
+
+    setOpponentSpeech(
+      opponent.tauntLockIn[Math.floor(Math.random() * opponent.tauntLockIn.length)]
+    );
+
+    executeSimultaneousTurn({
+      pCard,
+      oCard,
+      chamberIdx: currentChamberIdx,
+      slots: nextSlots,
+      pHand: nextPHand,
+      oHand: nextOHand,
+      pHp: playerHp,
+      oHp: opponentHp,
+      currentRound: roundNumber,
+    });
   }, [
     phase,
     playerHand,
-    playerTableTrap,
+    selectedCard,
     cylinderSlots,
-    selectedTrapCard,
-    applyLockedCardToCylinder,
+    opponentHand,
+    opponentHp,
+    applySimultaneousCardsToCylinder,
     currentChamberIdx,
     opponent,
-    executeShotSequence,
-    playerAim,
-    opponentHand,
-    opponentTableTrap,
+    executeSimultaneousTurn,
     playerHp,
-    opponentHp,
-    playerSkipNextTurn,
-    opponentSkipNextTurn,
     roundNumber,
   ]);
 
@@ -879,10 +679,6 @@ export const App: React.FC = () => {
       if (num >= 1 && num <= playerHand.length) {
         soundEngine.playCardSlide();
         handleSelectPlayerCard(playerHand[num - 1]);
-      } else if (e.code === 'Space' && phase === 'PLAYER_SELECT') {
-        e.preventDefault();
-        soundEngine.playAimTokenFlip();
-        setPlayerAim((prev) => (prev === 'opponent' ? 'self' : 'opponent'));
       } else if (e.key === 'Enter') {
         e.preventDefault();
         soundEngine.playBrassBell();
@@ -913,37 +709,24 @@ export const App: React.FC = () => {
         playerMaxHp={playerMaxHp}
         opponentHp={opponentHp}
         opponentMaxHp={opponentMaxHp}
-        playerCylinder={shellTypesFor3D}
-        opponentCylinder={shellTypesFor3D}
-        playerChamberIdx={currentChamberIdx}
-        opponentChamberIdx={currentChamberIdx}
+        sharedCylinder={shellTypesFor3D}
+        currentChamberIdx={currentChamberIdx}
         playerHand={playerHand}
         opponentHand={opponentHand}
         selectedLoadCards={selectedLoadCards}
-        selectedPlayerCard={selectedTrapCard}
-        selectedOpponentCard={null}
-        playerTableTrap={playerTableTrap}
-        opponentTableTrap={opponentTableTrap}
-        revealedTrapOwner={revealedTrapOwner}
+        selectedPlayerCard={selectedCard}
+        playerPlayedCard={playerPlayedCard}
+        opponentPlayedCard={opponentPlayedCard}
         readyToLockIn={readyToLockIn}
-        playerAim={playerAim}
-        opponentAim={opponentAim}
-        playerMuzzleFlash={playerMuzzleFlash}
-        opponentMuzzleFlash={opponentMuzzleFlash}
-        playerDryFire={playerDryFire}
-        opponentDryFire={opponentDryFire}
-        playerJammed={playerSkipNextTurn}
-        opponentJammed={opponentSkipNextTurn}
+        randomGunTarget={randomGunTarget}
+        gunMuzzleFlash={gunMuzzleFlash}
+        gunDryFire={gunDryFire}
         opponentDamagedAnim={opponentDamagedAnim}
         shakeIntensity={shakeIntensity}
         focusMode={focusMode}
         useBlenderAssets={useBlenderAssets}
         onSelectPlayerCard={handleSelectPlayerCard}
         onHoverCard={setHoveredCard}
-        onTogglePlayerAim={() =>
-          setPlayerAim((prev) => (prev === 'opponent' ? 'self' : 'opponent'))
-        }
-        onSelectPlayerAim={(choice) => setPlayerAim(choice)}
         onRingBell={handleRingBell}
       />
 
@@ -953,7 +736,6 @@ export const App: React.FC = () => {
         stageIndex={stageIndex}
         roundNumber={roundNumber}
         turnNumber={turnNumber}
-        activePlayer={activePlayer}
         phase={phase}
         statusBanner={statusBanner}
         subBanner={subBanner}
@@ -970,10 +752,9 @@ export const App: React.FC = () => {
         discardCount={discardCount}
         playerHand={playerHand}
         selectedLoadCards={selectedLoadCards}
-        selectedTrapCard={selectedTrapCard}
-        playerTableTrap={playerTableTrap}
-        opponentTableTrap={opponentTableTrap}
-        playerAim={playerAim}
+        selectedCard={selectedCard}
+        playerPlayedCard={playerPlayedCard}
+        opponentPlayedCard={opponentPlayedCard}
         hoveredCard={hoveredCard}
         muted={muted}
         focusMode={focusMode}
@@ -981,10 +762,6 @@ export const App: React.FC = () => {
         stats={stats}
         onSelectPlayerCard={handleSelectPlayerCard}
         onHoverCard={setHoveredCard}
-        onTogglePlayerAim={() =>
-          setPlayerAim((prev) => (prev === 'opponent' ? 'self' : 'opponent'))
-        }
-        onSelectPlayerAim={(choice) => setPlayerAim(choice)}
         onRingBell={handleRingBell}
         onDraftCard={handleDraftCard}
         onToggleChamberCounts={() => setShowChamberCounts((v) => !v)}

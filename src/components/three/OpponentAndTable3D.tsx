@@ -168,7 +168,7 @@ export const OpponentBust3D: React.FC<OpponentBust3DProps> = ({
     const targetZ =
       recentlyDamaged
         ? -3.05
-        : phase === 'RESOLVE_CHAMBER' || phase === 'RESOLVE_TRAP' || phase === 'FIRE_OPPONENT'
+        : phase === 'RESOLVE_CHAMBER' || phase === 'REVEAL_CARDS' || phase === 'FIRE_OPPONENT'
         ? -2.48
         : -2.65;
     const targetRotX = recentlyDamaged ? -0.25 : 0.08 + Math.sin(t * 1.4) * 0.018;

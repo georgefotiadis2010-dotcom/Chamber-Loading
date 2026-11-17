@@ -356,8 +356,8 @@ export function getCardFrontTexture(cardId: CardId): THREE.CanvasTexture {
   drawWrapped(card.chamberEffectText, 558, 424, 34);
 
   ctx.fillStyle = '#5c3a21';
-  ctx.font = '700 22px "Space Grotesk", system-ui, sans-serif';
-  drawWrapped(`Slot Trap: ${card.tableTrapText}`, 644, 424, 28);
+  ctx.font = '800 22px "Space Grotesk", system-ui, sans-serif';
+  drawWrapped(card.shortTag, 648, 424, 28);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;

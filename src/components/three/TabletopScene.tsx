@@ -3,6 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { PerspectiveCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import {
+  ActorSide,
   AimChoice,
   CardInstance,
   OpponentDef,
@@ -11,7 +12,7 @@ import {
 } from '../../types/game';
 import { Revolver3D } from './Revolver3D';
 import { Card3D } from './Card3D';
-import { AimToken3D, BrassBell3D } from './TabletopTokens3D';
+import { BrassBell3D } from './TabletopTokens3D';
 import { CardTableEnvironment3D, OpponentBust3D } from './OpponentAndTable3D';
 
 export type CameraFocusMode = 'table' | 'opponent' | 'cards';
@@ -46,7 +47,7 @@ const FirstPersonCameraRig: React.FC<FirstPersonCameraRigProps> = ({
     } else if (
       phase === 'SPIN_CYLINDERS' ||
       phase === 'RESOLVE_CHAMBER' ||
-      phase === 'RESOLVE_TRAP'
+      phase === 'REVEAL_CARDS'
     ) {
       basePos.set(0, 3.18, 4.35);
       baseLook.set(0, 0.25, -0.15);
@@ -114,78 +115,59 @@ export interface TabletopSceneProps {
   playerMaxHp: number;
   opponentHp: number;
   opponentMaxHp: number;
-  playerCylinder: ShellType[];
-  opponentCylinder: ShellType[];
-  playerChamberIdx: number;
-  opponentChamberIdx: number;
+  sharedCylinder: ShellType[];
+  currentChamberIdx: number;
   playerHand: CardInstance[];
   opponentHand: CardInstance[];
   selectedLoadCards: CardInstance[];
   selectedPlayerCard: CardInstance | null;
-  selectedOpponentCard: CardInstance | null;
-  playerTableTrap: CardInstance | null;
-  opponentTableTrap: CardInstance | null;
-  revealedTrapOwner: 'player' | 'opponent' | null;
+  playerPlayedCard: CardInstance | null;
+  opponentPlayedCard: CardInstance | null;
   readyToLockIn: boolean;
-  playerAim: AimChoice;
-  opponentAim: AimChoice;
-  playerMuzzleFlash: boolean;
-  opponentMuzzleFlash: boolean;
-  playerDryFire: boolean;
-  opponentDryFire: boolean;
-  playerJammed: boolean;
-  opponentJammed: boolean;
+  randomGunTarget: ActorSide;
+  gunMuzzleFlash: boolean;
+  gunDryFire: boolean;
   opponentDamagedAnim: boolean;
   shakeIntensity: number;
   focusMode: CameraFocusMode;
   useBlenderAssets: boolean;
   onSelectPlayerCard: (card: CardInstance) => void;
   onHoverCard?: (card: CardInstance | null) => void;
-  onTogglePlayerAim: () => void;
-  onSelectPlayerAim?: (choice: AimChoice) => void;
   onRingBell: () => void;
 }
 
 const SceneContents: React.FC<TabletopSceneProps> = ({
   opponent,
   phase,
-  playerHp,
-  playerMaxHp,
-  opponentHp,
-  opponentMaxHp,
-  playerCylinder,
-  opponentCylinder,
-  playerChamberIdx,
-  opponentChamberIdx,
+  sharedCylinder,
+  currentChamberIdx,
   playerHand,
   opponentHand,
   selectedLoadCards,
   selectedPlayerCard,
-  selectedOpponentCard,
-  playerTableTrap,
-  opponentTableTrap,
-  revealedTrapOwner,
+  playerPlayedCard,
+  opponentPlayedCard,
   readyToLockIn,
-  playerAim,
-  opponentAim,
-  playerMuzzleFlash,
-  opponentMuzzleFlash,
-  playerDryFire,
-  opponentDryFire,
-  playerJammed,
-  opponentJammed,
+  randomGunTarget,
+  gunMuzzleFlash,
+  gunDryFire,
   opponentDamagedAnim,
   shakeIntensity,
   focusMode,
   useBlenderAssets,
   onSelectPlayerCard,
   onHoverCard,
-  onTogglePlayerAim,
-  onSelectPlayerAim,
   onRingBell,
 }) => {
   const hasLockedCard =
     selectedPlayerCard !== null || selectedLoadCards.length > 0;
+  const gunAim: AimChoice = randomGunTarget === 'opponent' ? 'opponent' : 'self';
+  const isFiringNow = phase === 'FIRE_PLAYER' || phase === 'FIRE_OPPONENT';
+  const arePlayedCardsRevealed =
+    phase === 'REVEAL_CARDS' ||
+    phase === 'RESOLVE_CHAMBER' ||
+    phase === 'FIRE_PLAYER' ||
+    phase === 'FIRE_OPPONENT';
 
   return (
     <>
@@ -228,29 +210,17 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
         useBlenderAssets={useBlenderAssets}
       />
 
-      {/* Player & Opponent 3D Revolvers + 6-Slot Cylinders + 3D Shell Trays */}
+      {/* Single Shared 3D Revolver + 6-Slot Cylinder + 3D Shell Tray */}
       <Revolver3D
         owner="player"
-        cylinder={playerCylinder}
-        activeChamberIndex={playerChamberIdx}
+        cylinder={sharedCylinder}
+        activeChamberIndex={currentChamberIdx}
         phase={phase}
-        aim={playerAim}
-        isFiringNow={phase === 'FIRE_PLAYER'}
-        muzzleFlashActive={playerMuzzleFlash}
-        dryFireActive={playerDryFire}
-        isJammed={playerJammed}
-        useBlenderAssets={useBlenderAssets}
-      />
-      <Revolver3D
-        owner="opponent"
-        cylinder={opponentCylinder}
-        activeChamberIndex={opponentChamberIdx}
-        phase={phase}
-        aim={opponentAim}
-        isFiringNow={phase === 'FIRE_OPPONENT'}
-        muzzleFlashActive={opponentMuzzleFlash}
-        dryFireActive={opponentDryFire}
-        isJammed={opponentJammed}
+        aim={gunAim}
+        isFiringNow={isFiringNow}
+        muzzleFlashActive={gunMuzzleFlash}
+        dryFireActive={gunDryFire}
+        isJammed={false}
         useBlenderAssets={useBlenderAssets}
       />
 
@@ -283,58 +253,40 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
           owner="opponent"
           handIndex={idx}
           handCount={opponentHand.length}
-          isSelectedLocked={selectedOpponentCard?.uid === card.uid}
+          isSelectedLocked={false}
           phase={phase}
         />
       ))}
 
-      {/* Active Mid-Table Slot Cards on the Wood Planks */}
-      {playerTableTrap && (
+      {/* Simultaneously Placed Mid-Table Cards on the Wood Planks */}
+      {playerPlayedCard && (
         <Card3D
-          key={`trap_p_${playerTableTrap.uid}`}
-          card={playerTableTrap}
+          key={`played_p_${playerPlayedCard.uid}`}
+          card={playerPlayedCard}
           owner="player"
           handIndex={0}
           handCount={1}
           isSelectedLocked={false}
-          isTableTrap
-          isTrapRevealed={revealedTrapOwner === 'player'}
+          isPlayedSlot
+          isSlotRevealed={arePlayedCardsRevealed}
           phase={phase}
           onHoverCard={onHoverCard}
         />
       )}
-      {opponentTableTrap && (
+      {opponentPlayedCard && (
         <Card3D
-          key={`trap_o_${opponentTableTrap.uid}`}
-          card={opponentTableTrap}
+          key={`played_o_${opponentPlayedCard.uid}`}
+          card={opponentPlayedCard}
           owner="opponent"
           handIndex={0}
           handCount={1}
           isSelectedLocked={false}
-          isTableTrap
-          isTrapRevealed={revealedTrapOwner === 'opponent'}
+          isPlayedSlot
+          isSlotRevealed={arePlayedCardsRevealed}
           phase={phase}
           onHoverCard={onHoverCard}
         />
       )}
-
-      {/* Player's Two Distinct 3D Aim Chips (AIM OPPONENT & AIM SELF) + Opponent's Aim Chip */}
-      <AimToken3D
-        owner="player"
-        aim={playerAim}
-        isLockedInZone={selectedPlayerCard !== null}
-        phase={phase}
-        useBlenderAssets={useBlenderAssets}
-        onToggleAim={onTogglePlayerAim}
-        onSelectAim={onSelectPlayerAim}
-      />
-      <AimToken3D
-        owner="opponent"
-        aim={opponentAim}
-        isLockedInZone={true}
-        phase={phase}
-        useBlenderAssets={useBlenderAssets}
-      />
 
       {/* Physical 3D Brass LOCK IN Bell next to LOCK IN SLOT */}
       <BrassBell3D

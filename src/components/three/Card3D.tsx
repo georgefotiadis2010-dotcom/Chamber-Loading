@@ -12,8 +12,8 @@ interface Card3DProps {
   handIndex: number;
   handCount: number;
   isSelectedLocked: boolean;
-  isTableTrap?: boolean;
-  isTrapRevealed?: boolean;
+  isPlayedSlot?: boolean;
+  isSlotRevealed?: boolean;
   phase: TurnPhase;
   onSelectCard?: (card: CardInstance) => void;
   onHoverCard?: (card: CardInstance | null) => void;
@@ -25,8 +25,8 @@ export const Card3D: React.FC<Card3DProps> = ({
   handIndex,
   handCount,
   isSelectedLocked,
-  isTableTrap = false,
-  isTrapRevealed = false,
+  isPlayedSlot = false,
+  isSlotRevealed = false,
   phase,
   onSelectCard,
   onHoverCard,
@@ -39,14 +39,14 @@ export const Card3D: React.FC<Card3DProps> = ({
 
   const isPlayer = owner === 'player';
   const canInteract =
-    !isTableTrap &&
+    !isPlayedSlot &&
     isPlayer &&
     (phase === 'PRE_ROUND_LOAD' || phase === 'PLAYER_SELECT');
 
   // Fan offset for foreground player cards vs compact row for opponent far cards
   const fanOffset = handIndex - (handCount - 1) / 2;
 
-  const rowX = isTableTrap
+  const rowX = isPlayedSlot
     ? isPlayer
       ? -0.42
       : 0.42
@@ -54,7 +54,7 @@ export const Card3D: React.FC<Card3DProps> = ({
     ? fanOffset * 0.74 - 0.14
     : 0.35 + fanOffset * 0.56;
 
-  const rowZ = isTableTrap
+  const rowZ = isPlayedSlot
     ? isPlayer
       ? 0.34
       : -0.52
@@ -62,7 +62,7 @@ export const Card3D: React.FC<Card3DProps> = ({
     ? 2.24 + Math.abs(fanOffset) * 0.05
     : -1.44;
 
-  const rowY = isTableTrap
+  const rowY = isPlayedSlot
     ? 0.048
     : isPlayer
     ? 0.30 + handIndex * 0.012
@@ -77,25 +77,24 @@ export const Card3D: React.FC<Card3DProps> = ({
     [isPlayer, handIndex]
   );
 
-  // In image_0.png, image_1.png, image_2.png, opponent's far cards lie face-up;
-  // Mid-table slot cards flip face-up during resolution!
+  // Mid-table slot cards flip face-up together during REVEAL_CARDS / RESOLVE_CHAMBER!
   const isFaceDown =
-    isTableTrap &&
-    !isTrapRevealed &&
+    isPlayedSlot &&
+    !isSlotRevealed &&
+    phase !== 'REVEAL_CARDS' &&
     phase !== 'RESOLVE_CHAMBER' &&
-    phase !== 'RESOLVE_TRAP' &&
     phase !== 'FIRE_PLAYER' &&
     phase !== 'FIRE_OPPONENT';
 
   const isRevealingInCenter =
-    isTableTrap && (isTrapRevealed || phase === 'RESOLVE_TRAP' || phase === 'RESOLVE_CHAMBER');
+    isPlayedSlot && (isSlotRevealed || phase === 'REVEAL_CARDS' || phase === 'RESOLVE_CHAMBER');
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
     const targetPos = new THREE.Vector3(rowX, rowY, rowZ);
-    let targetRotX = isTableTrap ? 0 : isPlayer ? 0.48 : 0;
-    let targetRotY = isTableTrap
+    let targetRotX = isPlayedSlot ? 0 : isPlayer ? 0.48 : 0;
+    let targetRotY = isPlayedSlot
       ? isPlayer
         ? 0
         : Math.PI
@@ -103,7 +102,7 @@ export const Card3D: React.FC<Card3DProps> = ({
       ? -fanOffset * 0.08
       : Math.PI;
     let targetRotZ = isFaceDown ? Math.PI : 0;
-    let targetScale = isTableTrap ? 0.68 : isPlayer ? 0.72 : 0.54;
+    let targetScale = isPlayedSlot ? 0.68 : isPlayer ? 0.72 : 0.54;
 
     if (isRevealingInCenter) {
       targetPos.set(isPlayer ? -0.42 : 0.42, 0.2, isPlayer ? 0.42 : -0.48);
@@ -111,13 +110,13 @@ export const Card3D: React.FC<Card3DProps> = ({
       targetRotY = 0;
       targetRotZ = 0;
       targetScale = 0.86;
-    } else if (isSelectedLocked && !isTableTrap) {
+    } else if (isSelectedLocked && !isPlayedSlot) {
       targetPos.copy(lockPos);
       targetRotX = 0;
       targetRotY = 0;
       targetRotZ = 0;
       targetScale = 0.78;
-    } else if (hovered && !isTableTrap && isPlayer) {
+    } else if (hovered && !isPlayedSlot && isPlayer) {
       targetPos.y = 0.72;
       targetPos.z = rowZ - 0.08;
       targetRotX = 0.72;
@@ -169,7 +168,7 @@ export const Card3D: React.FC<Card3DProps> = ({
     if (!hovered) {
       setHovered(true);
       soundEngine.playCardHover();
-      if (isPlayer || isTrapRevealed) {
+      if (isPlayer || isSlotRevealed) {
         onHoverCard?.(card);
       }
       if (canInteract) {
@@ -194,18 +193,18 @@ export const Card3D: React.FC<Card3DProps> = ({
   };
 
   const hitPos: [number, number, number] =
-    isSelectedLocked && !isTableTrap
+    isSelectedLocked && !isPlayedSlot
       ? [lockPos.x, lockPos.y, lockPos.z]
       : [rowX, rowY, rowZ];
   const hitRot: [number, number, number] =
-    isSelectedLocked && !isTableTrap
+    isSelectedLocked && !isPlayedSlot
       ? [0, 0, 0]
       : [
-          isTableTrap ? 0 : isPlayer ? 0.48 : 0,
-          isTableTrap ? (isPlayer ? 0 : Math.PI) : isPlayer ? -fanOffset * 0.08 : Math.PI,
+          isPlayedSlot ? 0 : isPlayer ? 0.48 : 0,
+          isPlayedSlot ? (isPlayer ? 0 : Math.PI) : isPlayer ? -fanOffset * 0.08 : Math.PI,
           0,
         ];
-  const hitScale = isSelectedLocked && !isTableTrap ? 0.78 : isTableTrap ? 0.68 : isPlayer ? 0.72 : 0.54;
+  const hitScale = isSelectedLocked && !isPlayedSlot ? 0.78 : isPlayedSlot ? 0.68 : isPlayer ? 0.72 : 0.54;
   const noRaycast = () => null;
 
   return (
