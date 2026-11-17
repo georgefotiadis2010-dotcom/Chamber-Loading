@@ -65,6 +65,8 @@ export interface CardDef {
   tableTrapText: string;
   accentColor: string;
   borderColor: string;
+  headerBgColor: string;
+  artBgColor: string;
   badgeText: string;
   onChamberFire: (ctx: ChamberFireContext) => ChamberFireResult;
   onTableTrigger: (ctx: TableTriggerContext) => TableTriggerResult;

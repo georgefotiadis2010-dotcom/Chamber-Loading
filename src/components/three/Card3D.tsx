@@ -43,59 +43,105 @@ export const Card3D: React.FC<Card3DProps> = ({
     isPlayer &&
     (phase === 'PRE_ROUND_LOAD' || phase === 'PLAYER_SELECT');
 
-  const spacing = handCount > 5 ? 0.88 : 1.04;
-  const rowX = isTableTrap ? -1.45 : (handIndex - (handCount - 1) / 2) * spacing;
-  const rowZ = isTableTrap ? (isPlayer ? 0.72 : -0.72) : isPlayer ? 2.02 : -2.18;
-  const rowY = isTableTrap ? 0.06 : 0.045;
+  // Fan offset for foreground player cards vs compact row for opponent far cards
+  const fanOffset = handIndex - (handCount - 1) / 2;
 
+  const rowX = isTableTrap
+    ? isPlayer
+      ? -0.42
+      : 0.42
+    : isPlayer
+    ? fanOffset * 0.68 - 0.12
+    : 0.35 + fanOffset * 0.56;
+
+  const rowZ = isTableTrap
+    ? isPlayer
+      ? 0.34
+      : -0.52
+    : isPlayer
+    ? 2.22 + Math.abs(fanOffset) * 0.05
+    : -1.44;
+
+  const rowY = isTableTrap
+    ? 0.045
+    : isPlayer
+    ? 0.22 + handIndex * 0.008
+    : 0.032;
+
+  // Centered LOCK IN SLOT position on the near plank
   const lockPos = useMemo(
     () =>
       isPlayer
-        ? new THREE.Vector3(-0.78 + (handIndex % 2) * 0.35, 0.08, 0.58)
-        : new THREE.Vector3(-0.78, 0.08, -0.58),
+        ? new THREE.Vector3(-0.44 + (handIndex % 2) * 0.04, 0.09, 1.16)
+        : new THREE.Vector3(-0.42, 0.06, -0.52),
     [isPlayer, handIndex]
   );
 
+  // In image_0.png, image_1.png, image_2.png, opponent's far cards lie face-up;
+  // Mid-table slot cards flip face-up during resolution!
   const isFaceDown =
-    (isTableTrap && !isTrapRevealed) ||
-    (!isPlayer && !isTableTrap && phase === 'PRE_ROUND_LOAD');
+    isTableTrap &&
+    !isTrapRevealed &&
+    phase !== 'RESOLVE_CHAMBER' &&
+    phase !== 'RESOLVE_TRAP' &&
+    phase !== 'FIRE_PLAYER' &&
+    phase !== 'FIRE_OPPONENT';
 
   const isRevealingInCenter =
-    isTableTrap && isTrapRevealed && phase === 'RESOLVE_TRAP';
+    isTableTrap && (isTrapRevealed || phase === 'RESOLVE_TRAP' || phase === 'RESOLVE_CHAMBER');
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
 
     const targetPos = new THREE.Vector3(rowX, rowY, rowZ);
-    let targetRotX = isTableTrap ? 0 : isPlayer ? 0.14 : -0.06;
-    let targetRotY = 0;
+    let targetRotX = isTableTrap ? 0 : isPlayer ? 0.48 : 0;
+    let targetRotY = isTableTrap
+      ? isPlayer
+        ? 0
+        : Math.PI
+      : isPlayer
+      ? -fanOffset * 0.08
+      : Math.PI;
     let targetRotZ = isFaceDown ? Math.PI : 0;
-    let targetScale = isTableTrap ? 0.88 : 0.92;
+    let targetScale = isTableTrap ? 0.68 : isPlayer ? 0.72 : 0.54;
 
     if (isRevealingInCenter) {
-      targetPos.set(0, 0.38, isPlayer ? 0.35 : -0.35);
-      targetRotX = 0.2;
+      targetPos.set(isPlayer ? -0.42 : 0.42, 0.2, isPlayer ? 0.42 : -0.48);
+      targetRotX = isPlayer ? 0.22 : -0.15;
+      targetRotY = 0;
       targetRotZ = 0;
-      targetScale = 1.15;
+      targetScale = 0.86;
     } else if (isSelectedLocked && !isTableTrap) {
       targetPos.copy(lockPos);
-      targetRotX = isPlayer ? 0.12 : 0;
+      targetRotX = isPlayer ? 0.06 : 0;
       targetRotY = 0;
-      targetRotZ = phase === 'PRE_ROUND_LOAD' ? Math.PI : 0;
-      targetPos.y = 0.14;
-      targetScale = 0.98;
-    } else if (hovered && !isTableTrap) {
-      targetPos.y = 0.54;
-      targetPos.z = isPlayer ? rowZ + 0.36 : rowZ - 0.15;
-      targetRotX = isPlayer ? 0.46 : -0.22;
-      targetScale = 1.24;
+      targetRotZ = 0;
+      targetScale = 0.78;
+    } else if (hovered && !isTableTrap && isPlayer) {
+      targetPos.y = 0.62;
+      targetPos.z = rowZ - 0.14;
+      targetRotX = 0.66;
+      targetRotY = -fanOffset * 0.04;
+      targetScale = 0.96;
     }
 
     const speed = Math.min(1, delta * 11);
     groupRef.current.position.lerp(targetPos, speed);
-    groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, targetRotX, speed);
-    groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotY, speed);
-    groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, targetRotZ, speed);
+    groupRef.current.rotation.x = THREE.MathUtils.lerp(
+      groupRef.current.rotation.x,
+      targetRotX,
+      speed
+    );
+    groupRef.current.rotation.y = THREE.MathUtils.lerp(
+      groupRef.current.rotation.y,
+      targetRotY,
+      speed
+    );
+    groupRef.current.rotation.z = THREE.MathUtils.lerp(
+      groupRef.current.rotation.z,
+      targetRotZ,
+      speed
+    );
 
     const s = THREE.MathUtils.lerp(groupRef.current.scale.x, targetScale, speed);
     groupRef.current.scale.setScalar(s);
@@ -147,25 +193,31 @@ export const Card3D: React.FC<Card3DProps> = ({
       onPointerOut={handlePointerOut}
       onClick={handleClick}
     >
-      {/* Chunky beveled 3D card body */}
-      <RoundedBox args={[0.92, 0.032, 1.32]} radius={0.014} smoothness={3} castShadow receiveShadow>
+      {/* Chunky beveled cream-parchment 3D card body */}
+      <RoundedBox
+        args={[0.92, 0.034, 1.32]}
+        radius={0.015}
+        smoothness={3}
+        castShadow
+        receiveShadow
+      >
         <meshStandardMaterial
-          color={hovered || isSelectedLocked ? card.def.accentColor : '#27232f'}
-          metalness={0.55}
-          roughness={0.32}
+          color={hovered || isSelectedLocked ? '#fef08a' : '#e5d3b5'}
+          metalness={0.12}
+          roughness={0.38}
         />
       </RoundedBox>
 
       {/* Top Face-Up Canvas Texture Plane */}
-      <mesh position={[0, 0.017, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.88, 1.28]} />
-        <meshStandardMaterial map={frontTex} roughness={0.35} metalness={0.08} />
+      <mesh position={[0, 0.018, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.89, 1.29]} />
+        <meshStandardMaterial map={frontTex} roughness={0.38} metalness={0.04} />
       </mesh>
 
-      {/* Bottom Face-Down Casino Back Texture Plane */}
-      <mesh position={[0, -0.017, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[0.88, 1.28]} />
-        <meshStandardMaterial map={backTex} roughness={0.38} metalness={0.15} />
+      {/* Bottom Face-Down Back Texture Plane */}
+      <mesh position={[0, -0.018, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.89, 1.29]} />
+        <meshStandardMaterial map={backTex} roughness={0.4} metalness={0.08} />
       </mesh>
     </group>
   );

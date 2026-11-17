@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { RoundedBox, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
 import { AimChoice, ShellType, TurnPhase } from '../../types/game';
+import { soundEngine } from '../../audio/soundEngine';
 
 interface Revolver3DProps {
   owner: 'player' | 'opponent';
@@ -43,25 +44,24 @@ function BlenderShellMesh({ type }: { type: Exclude<ShellType, 'empty'> }) {
 }
 
 function ProceduralShellMesh({ type }: { type: Exclude<ShellType, 'empty'> }) {
-  const hullColor =
-    type === 'live' ? '#dc2626' : type === 'heavy' ? '#f97316' : '#64748b';
-  const rimColor = type === 'blank' ? '#cbd5e1' : '#fbbf24';
-  const tipColor =
-    type === 'live' ? '#d97706' : type === 'heavy' ? '#facc15' : '#94a3b8';
+  const isBrass = type === 'live' || type === 'heavy';
+  const hullColor = isBrass ? '#eab308' : '#cbd5e1';
+  const rimColor = isBrass ? '#facc15' : '#e2e8f0';
+  const boreColor = isBrass ? '#713f12' : '#475569';
 
   return (
     <group>
       <mesh position={[0, -0.31, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[0.105, 0.105, 0.06, 20]} />
-        <meshStandardMaterial color={rimColor} metalness={0.9} roughness={0.22} />
+        <meshStandardMaterial color={rimColor} metalness={0.88} roughness={0.22} />
       </mesh>
       <mesh position={[0, 0.02, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.096, 0.096, 0.36, 20]} />
-        <meshStandardMaterial color={hullColor} metalness={0.35} roughness={0.3} />
+        <cylinderGeometry args={[0.098, 0.098, 0.42, 20]} />
+        <meshStandardMaterial color={hullColor} metalness={0.82} roughness={0.25} />
       </mesh>
-      <mesh position={[0, 0.22, 0]} castShadow receiveShadow>
-        <sphereGeometry args={[0.092, 16, 12]} />
-        <meshStandardMaterial color={tipColor} metalness={0.85} roughness={0.25} />
+      <mesh position={[0, 0.24, 0]}>
+        <cylinderGeometry args={[0.06, 0.06, 0.02, 16]} />
+        <meshStandardMaterial color={boreColor} roughness={0.6} />
       </mesh>
     </group>
   );
@@ -101,17 +101,17 @@ function ProceduralRevolverFrame() {
   return (
     <group>
       <RoundedBox args={[0.36, 0.18, 1.45]} radius={0.05} smoothness={3} position={[0, 0.48, -0.05]} castShadow receiveShadow>
-        <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.25} />
+        <meshStandardMaterial color="#94a3b8" metalness={0.78} roughness={0.28} />
       </RoundedBox>
       <RoundedBox args={[0.36, 0.18, 1.38]} radius={0.05} smoothness={3} position={[0, -0.46, -0.05]} castShadow receiveShadow>
-        <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.25} />
+        <meshStandardMaterial color="#94a3b8" metalness={0.78} roughness={0.28} />
       </RoundedBox>
       <RoundedBox args={[0.38, 0.96, 0.42]} radius={0.06} smoothness={3} position={[0, 0.02, 0.65]} castShadow receiveShadow>
-        <meshStandardMaterial color="#94a3b8" metalness={0.85} roughness={0.25} />
+        <meshStandardMaterial color="#94a3b8" metalness={0.78} roughness={0.28} />
       </RoundedBox>
-      <mesh position={[0, 0.16, -1.10]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+      <mesh position={[0, 0.16, -1.1]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[0.24, 0.24, 1.25, 28]} />
-        <meshStandardMaterial color="#94a3b8" metalness={0.86} roughness={0.24} />
+        <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.26} />
       </mesh>
       <mesh position={[0, 0.16, -1.73]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.14, 0.14, 0.05, 24]} />
@@ -119,22 +119,19 @@ function ProceduralRevolverFrame() {
       </mesh>
       <mesh position={[0, -0.09, -1.02]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[0.14, 0.14, 1.1, 24]} />
-        <meshStandardMaterial color="#64748b" metalness={0.82} roughness={0.28} />
+        <meshStandardMaterial color="#64748b" metalness={0.78} roughness={0.3} />
       </mesh>
-      <RoundedBox args={[0.09, 0.16, 0.22]} radius={0.02} position={[0, 0.48, -1.52]} castShadow>
-        <meshStandardMaterial color="#f97316" emissive="#ea580c" emissiveIntensity={0.35} />
-      </RoundedBox>
       <mesh position={[0, -0.62, 0.14]} rotation={[0, Math.PI / 2, 0]} castShadow>
         <torusGeometry args={[0.28, 0.06, 14, 28]} />
-        <meshStandardMaterial color="#334155" metalness={0.8} roughness={0.32} />
+        <meshStandardMaterial color="#64748b" metalness={0.75} roughness={0.32} />
       </mesh>
       <mesh position={[0, -0.58, 0.18]} rotation={[0.45, 0, 0]} castShadow>
         <cylinderGeometry args={[0.05, 0.05, 0.3, 16]} />
-        <meshStandardMaterial color="#eab308" metalness={0.9} roughness={0.22} />
+        <meshStandardMaterial color="#475569" metalness={0.8} roughness={0.28} />
       </mesh>
       <RoundedBox
-        args={[0.44, 1.22, 0.54]}
-        radius={0.12}
+        args={[0.46, 1.24, 0.56]}
+        radius={0.14}
         smoothness={4}
         position={[0, -0.78, 0.98]}
         rotation={[0.45, 0, 0]}
@@ -151,12 +148,12 @@ function ProceduralRevolverCylinder() {
   return (
     <group>
       <mesh rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.40, 0.40, 0.84, 32]} />
-        <meshStandardMaterial color="#64748b" metalness={0.88} roughness={0.26} />
+        <cylinderGeometry args={[0.4, 0.4, 0.84, 32]} />
+        <meshStandardMaterial color="#64748b" metalness={0.82} roughness={0.26} />
       </mesh>
       <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
         <cylinderGeometry args={[0.075, 0.075, 0.94, 20]} />
-        <meshStandardMaterial color="#eab308" metalness={0.92} roughness={0.2} />
+        <meshStandardMaterial color="#eab308" metalness={0.9} roughness={0.2} />
       </mesh>
     </group>
   );
@@ -176,54 +173,64 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
   const gunGroupRef = useRef<THREE.Group>(null);
   const cylinderPivotRef = useRef<THREE.Group>(null);
   const cylinderSpinRef = useRef<THREE.Group>(null);
-  const spinVelocityRef = useRef(0);
+  const manualSpinRef = useRef(0);
+  const manualPopOutRef = useRef(false);
 
   const isPlayer = owner === 'player';
 
+  // Exact tabletop positions matching image_0.png, image_1.png, image_2.png:
+  // Player's gun lies flat on the right side of the near plank; Opponent's gun lies on the far left plank.
   const restPos = useMemo(
-    () => (isPlayer ? new THREE.Vector3(-2.35, 0.25, 1.15) : new THREE.Vector3(2.35, 0.25, -1.15)),
+    () => (isPlayer ? new THREE.Vector3(2.12, 0.15, 1.12) : new THREE.Vector3(-1.72, 0.13, -1.24)),
     [isPlayer]
   );
 
-  const isCylinderOpen = phase === 'PRE_ROUND_LOAD' || phase === 'RELOAD_ROUND';
-  const isSpinning = phase === 'SPIN_CYLINDERS';
+  const isCylinderOpen =
+    phase === 'RELOAD_ROUND' ||
+    phase === 'RESOLVE_CHAMBER' ||
+    manualPopOutRef.current;
+  const isSpinning = phase === 'SPIN_CYLINDERS' || manualSpinRef.current > 0.05;
 
   useFrame((_, delta) => {
     if (!gunGroupRef.current || !cylinderPivotRef.current || !cylinderSpinRef.current) return;
 
-    const targetPos = restPos.clone();
-    let targetRotX = 0;
-    let targetRotY = isPlayer ? -0.35 : Math.PI - 0.35;
-    let targetRotZ = isPlayer ? Math.PI * 0.42 : -Math.PI * 0.42;
+    if (manualSpinRef.current > 0) {
+      manualSpinRef.current = Math.max(0, manualSpinRef.current - delta * 14);
+    }
 
-    if (isCylinderOpen || isSpinning) {
-      targetPos.y = 0.78;
-      targetPos.x = isPlayer ? -1.95 : 1.95;
-      targetPos.z = isPlayer ? 0.95 : -0.95;
-      targetRotX = 0.18;
-      targetRotY = isPlayer ? -0.45 : Math.PI - 0.45;
-      targetRotZ = 0;
+    const targetPos = restPos.clone();
+    // Lying flat on its left side so the barrel points left-upward and the brown wooden grip curves down-right!
+    let targetRotX = isPlayer ? -0.05 : 0.05;
+    let targetRotY = isPlayer ? 1.28 : -1.82;
+    let targetRotZ = isPlayer ? -Math.PI * 0.46 : Math.PI * 0.46;
+
+    if (phase === 'SPIN_CYLINDERS') {
+      targetPos.y = isPlayer ? 0.56 : 0.42;
+      targetPos.x = isPlayer ? 1.72 : -1.48;
+      targetRotX = 0.16;
+      targetRotY = isPlayer ? 0.85 : -2.15;
+      targetRotZ = isPlayer ? 0.35 : -0.35;
     } else if (isFiringNow) {
-      targetPos.set(isPlayer ? -0.35 : 0.35, 1.25, isPlayer ? 1.35 : -1.35);
+      targetPos.set(isPlayer ? 0.42 : -0.42, 1.08, isPlayer ? 1.15 : -1.05);
 
       if (isPlayer) {
         if (aim === 'opponent') {
-          targetRotX = muzzleFlashActive ? 0.48 : 0.04;
-          targetRotY = 0;
+          targetRotX = muzzleFlashActive ? 0.48 : 0.05;
+          targetRotY = 0.08;
           targetRotZ = 0;
         } else {
           targetRotX = muzzleFlashActive ? -0.45 : -0.12;
-          targetRotY = Math.PI;
+          targetRotY = Math.PI - 0.15;
           targetRotZ = 0;
         }
       } else {
         if (aim === 'opponent') {
-          targetRotX = muzzleFlashActive ? -0.48 : -0.04;
-          targetRotY = Math.PI;
+          targetRotX = muzzleFlashActive ? -0.48 : -0.05;
+          targetRotY = Math.PI - 0.08;
           targetRotZ = 0;
         } else {
           targetRotX = muzzleFlashActive ? 0.45 : 0.12;
-          targetRotY = 0;
+          targetRotY = 0.15;
           targetRotZ = 0;
         }
       }
@@ -239,8 +246,9 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
     gunGroupRef.current.rotation.y = THREE.MathUtils.lerp(gunGroupRef.current.rotation.y, targetRotY, lerpSpeed);
     gunGroupRef.current.rotation.z = THREE.MathUtils.lerp(gunGroupRef.current.rotation.z, targetRotZ, lerpSpeed);
 
-    const targetSwingX = isCylinderOpen ? -0.62 : 0;
-    const targetSwingY = isCylinderOpen ? -0.14 : 0;
+    // Cylinder physical pop-out / swing-out animation
+    const targetSwingX = isCylinderOpen ? -0.54 : 0;
+    const targetSwingY = isCylinderOpen ? 0.16 : 0;
     cylinderPivotRef.current.position.x = THREE.MathUtils.lerp(
       cylinderPivotRef.current.position.x,
       targetSwingX,
@@ -253,8 +261,8 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
     );
 
     if (isSpinning) {
-      spinVelocityRef.current = 22.0;
-      cylinderSpinRef.current.rotation.z += spinVelocityRef.current * delta;
+      const vel = phase === 'SPIN_CYLINDERS' ? 22.0 : manualSpinRef.current;
+      cylinderSpinRef.current.rotation.z += vel * delta;
     } else {
       const targetAngle = Math.PI / 2 - activeChamberIndex * (Math.PI / 3);
       cylinderSpinRef.current.rotation.z = THREE.MathUtils.lerp(
@@ -265,20 +273,56 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
     }
   });
 
-  const trayPos: [number, number, number] = isPlayer ? [-3.65, 0.01, 1.15] : [3.65, 0.01, -1.15];
+  // Tray positions matching image_0.png, image_1.png, image_2.png:
+  // Player's tray sits right above the revolver on the right; Opponent's tray sits beside their revolver on the left.
+  const trayPos: [number, number, number] = isPlayer
+    ? [2.44, 0.015, 0.34]
+    : [-2.18, 0.015, -1.04];
+  const trayRotY = isPlayer ? -0.24 : 0.18;
+
   const traySlotOffsets: [number, number][] = [
     [-0.38, -0.18],
-    [0, -0.18],
-    [0.38, -0.18],
     [-0.38, 0.18],
+    [0, -0.18],
     [0, 0.18],
+    [0.38, -0.18],
     [0.38, 0.18],
   ];
 
+  // Ensure the tray visually displays 3 brass (live) shells on the left and 3 silver (blank) shells on the right
+  // while reflecting spent chambers
+  const trayShells: ShellType[] = useMemo(() => {
+    return [0, 1, 2, 3, 4, 5].map((i) => {
+      if (cylinder[i] === 'empty') return 'empty';
+      return i < 3 ? 'live' : 'blank';
+    });
+  }, [cylinder]);
+
+  const handleInspectRevolver = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    manualPopOutRef.current = !manualPopOutRef.current;
+    manualSpinRef.current = 18.0;
+    soundEngine.playCylinderLatch(manualPopOutRef.current);
+    soundEngine.playCylinderSpin();
+  };
+
   return (
     <group>
-      {/* 1. Physical 3D Snub-Nose Revolver + Separated 6-Slot Cylinder */}
-      <group ref={gunGroupRef} position={restPos.toArray()} scale={0.56}>
+      {/* 1. Physical 3D Snub-Nose Revolver + Pop-Out 6-Slot Cylinder */}
+      <group
+        ref={gunGroupRef}
+        position={restPos.toArray()}
+        scale={isPlayer ? 0.62 : 0.45}
+        onClick={handleInspectRevolver}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation();
+          document.body.style.cursor = 'auto';
+        }}
+      >
         {useBlenderAssets ? (
           <Suspense fallback={<ProceduralRevolverFrame />}>
             <BlenderRevolverFrame />
@@ -324,7 +368,7 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
           </group>
         </group>
 
-        {/* Volumetric 3D Muzzle Flash & Smoke Puff when firing a Live / Heavy round */}
+        {/* Volumetric 3D Muzzle Flash & Smoke Puff when firing a Live round */}
         {muzzleFlashActive && (
           <group position={[0, 0.16, -2.05]}>
             <pointLight color="#ff7b00" intensity={18} distance={8} decay={2} />
@@ -350,29 +394,34 @@ export const Revolver3D: React.FC<Revolver3DProps> = ({
         )}
       </group>
 
-      {/* 2. Physical 3D Shell Tray beside each gun showing the 6 shells in the cylinder */}
-      <group position={trayPos} scale={0.78}>
+      {/* 2. Physical 3D Shell Tray beside each gun holding Brass (Live) & Silver (Blank) 3D Shells */}
+      <group
+        position={trayPos}
+        rotation={[0, trayRotY, 0]}
+        scale={isPlayer ? 0.68 : 0.52}
+        onClick={handleInspectRevolver}
+      >
         {useBlenderAssets ? (
           <Suspense
             fallback={
-              <RoundedBox args={[1.28, 0.18, 0.78]} radius={0.03} position={[0, 0.09, 0]} castShadow receiveShadow>
-                <meshStandardMaterial color="#5c2d16" roughness={0.45} />
+              <RoundedBox args={[1.32, 0.22, 0.82]} radius={0.05} position={[0, 0.11, 0]} castShadow receiveShadow>
+                <meshStandardMaterial color="#6b5b50" roughness={0.48} />
               </RoundedBox>
             }
           >
             <BlenderShellTray />
           </Suspense>
         ) : (
-          <RoundedBox args={[1.28, 0.18, 0.78]} radius={0.03} position={[0, 0.09, 0]} castShadow receiveShadow>
-            <meshStandardMaterial color="#5c2d16" roughness={0.45} />
+          <RoundedBox args={[1.32, 0.22, 0.82]} radius={0.05} position={[0, 0.11, 0]} castShadow receiveShadow>
+            <meshStandardMaterial color="#6b5b50" roughness={0.48} />
           </RoundedBox>
         )}
 
-        {cylinder.map((shell, idx) => {
+        {trayShells.map((shell, idx) => {
           if (shell === 'empty') return null;
           const [sx, sz] = traySlotOffsets[idx];
           return (
-            <group key={idx} position={[sx, 0.34, sz]} scale={0.88}>
+            <group key={idx} position={[sx, 0.36, sz]} scale={0.92}>
               {useBlenderAssets ? (
                 <Suspense fallback={<ProceduralShellMesh type={shell} />}>
                   <BlenderShellMesh type={shell} />

@@ -704,30 +704,30 @@ def build_heart_token():
 
 
 # ==============================================================================
-# 7. SHELL TRAY (Carved Walnut & Brass 6-Slot Ammo Tray)
+# 7. SHELL TRAY (Chunky Rounded 6-Slot Ammo Block from image_2.png)
 # ==============================================================================
 def build_shell_tray():
     clear_scene()
 
-    mat_wood = make_material("TrayWalnut", (0.36, 0.18, 0.08), metallic=0.05, roughness=0.45, coat=0.25)
-    mat_brass = make_material("TrayBrass", (0.86, 0.66, 0.20), metallic=0.90, roughness=0.25)
+    mat_tray = make_material("TrayStoneBrown", (0.42, 0.36, 0.32), metallic=0.12, roughness=0.48, coat=0.15)
+    mat_well = make_material("TrayWellDark", (0.14, 0.12, 0.10), metallic=0.30, roughness=0.60)
 
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 0.09))
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0, 0.11))
     tray = bpy.context.active_object
     tray.name = "ShellTrayBody"
-    tray.scale = (1.28, 0.78, 0.18)
+    tray.scale = (1.32, 0.82, 0.22)
     bpy.ops.object.transform_apply(scale=True)
-    assign_material(tray, mat_wood)
-    add_bevel(tray, width=0.03, segments=3)
+    assign_material(tray, mat_tray)
+    add_bevel(tray, width=0.055, segments=4)
     apply_all_modifiers(tray)
 
     xs = [-0.38, 0.0, 0.38]
     ys = [-0.18, 0.18]
     for x in xs:
         for y in ys:
-            bpy.ops.mesh.primitive_cylinder_add(vertices=24, radius=0.125, depth=0.18, location=(x, y, 0.15))
+            bpy.ops.mesh.primitive_cylinder_add(vertices=28, radius=0.125, depth=0.20, location=(x, y, 0.17))
             well = bpy.context.active_object
-            assign_material(well, mat_brass)
+            assign_material(well, mat_well)
             boolean_diff(tray, well)
 
     shade_smooth(tray)
@@ -735,201 +735,264 @@ def build_shell_tray():
 
 
 # ==============================================================================
-# 8. 5 DISTINCT STYLIZED OPPONENT BUSTS & MASKS
+# 8. STYLIZED 3D CARTOON OUTLAW OPPONENTS SEATED IN CHAIR (Matches image_0/1/2)
 # Facing -Y in Blender (which exports as +Z in Three.js, facing the player!)
 # ==============================================================================
 def build_opponent_bust(filename, mask_color, accent_color, eye_color, style="rookie"):
     clear_scene()
 
-    mat_cloak = make_material(f"{style}_Cloak", (0.14, 0.13, 0.16), metallic=0.15, roughness=0.62)
-    mat_mask = make_material(f"{style}_Mask", mask_color, metallic=0.35 if style != "heavy" else 0.82, roughness=0.26, coat=0.38)
-    mat_accent = make_material(f"{style}_Accent", accent_color, metallic=0.88, roughness=0.22)
-    mat_eye = make_material(f"{style}_EyeGlow", eye_color, metallic=0.1, roughness=0.2, emission=eye_color, emission_strength=2.2)
-    mat_dark = make_material(f"{style}_DarkSlot", (0.05, 0.05, 0.06), metallic=0.3, roughness=0.7)
+    mat_chair = make_material(f"{style}_ChairWood", (0.34, 0.19, 0.10), metallic=0.04, roughness=0.48, coat=0.2)
+    mat_skin = make_material(f"{style}_Skin", (0.90, 0.63, 0.46), metallic=0.02, roughness=0.42, coat=0.15)
+    mat_hair = make_material(f"{style}_Hair", (0.32, 0.18, 0.10), metallic=0.05, roughness=0.45, coat=0.2)
+    mat_mask = make_material(f"{style}_DominoMask", mask_color, metallic=0.12, roughness=0.38, coat=0.25)
+    mat_scarf = make_material(f"{style}_Bandana", accent_color, metallic=0.05, roughness=0.42, coat=0.2)
+    mat_vest = make_material(f"{style}_Vest", (0.18, 0.25, 0.28), metallic=0.08, roughness=0.52)
+    mat_sleeve = make_material(f"{style}_Sleeve", (0.86, 0.80, 0.70), metallic=0.02, roughness=0.55)
+    mat_glove = make_material(f"{style}_Glove", (0.38, 0.21, 0.12), metallic=0.08, roughness=0.45)
+    mat_white = make_material(f"{style}_White", (0.98, 0.98, 0.99), metallic=0.02, roughness=0.22)
+    mat_pupil = make_material(f"{style}_Pupil", (0.08, 0.06, 0.06), metallic=0.1, roughness=0.15)
+    mat_mouth_dark = make_material(f"{style}_MouthDark", (0.18, 0.08, 0.06), metallic=0.05, roughness=0.5)
 
-    # Shoulders / Torso Bust
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=1.15, location=(0, 0, 0.2))
-    torso = bpy.context.active_object
-    torso.name = "BustTorso"
-    torso.scale = (1.35, 0.72, 1.15)
+    # 1. High-Backed Wooden Tavern Chair behind the opponent (Y = +0.55)
+    for side in (-1, 1):
+        bpy.ops.mesh.primitive_cube_add(
+            size=1.0,
+            location=(side * 1.02, 0.52, 1.35),
+            rotation=(0, math.radians(side * -5), 0)
+        )
+        post = bpy.context.active_object
+        post.scale = (0.24, 0.22, 2.35)
+        bpy.ops.object.transform_apply(scale=True)
+        assign_material(post, mat_chair)
+        add_bevel(post, width=0.05, segments=3)
+        shade_smooth(post)
+
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, 0.56, 1.55))
+    chair_back = bpy.context.active_object
+    chair_back.scale = (1.88, 0.16, 1.65)
     bpy.ops.object.transform_apply(scale=True)
-    assign_material(torso, mat_cloak)
-    bpy.ops.mesh.primitive_cube_add(size=3.5, location=(0, 0, -1.75))
-    cutter = bpy.context.active_object
-    boolean_diff(torso, cutter)
+    assign_material(chair_back, mat_chair)
+    add_bevel(chair_back, width=0.05, segments=3)
+    shade_smooth(chair_back)
+
+    # 2. Torso / Dark Vest & Cream Shirt Sleeves
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=18, radius=0.95, location=(0, 0.05, 0.72))
+    torso = bpy.context.active_object
+    torso.scale = (1.12, 0.74, 1.18)
+    bpy.ops.object.transform_apply(scale=True)
+    assign_material(torso, mat_vest)
     shade_smooth(torso)
 
-    # Stylized Mask Head
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=20, radius=0.68, location=(0, -0.10, 1.95))
-    head = bpy.context.active_object
-    head.name = "MaskFace"
-    head.scale = (0.88, 0.78, 1.18)
+    # Cream Sleeves & Brown Bracers/Arms resting toward the table edge
+    for side in (-1, 1):
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=24,
+            radius=0.30,
+            depth=1.05,
+            location=(side * 0.96, -0.08, 0.78),
+            rotation=(math.radians(24), math.radians(side * -24), 0)
+        )
+        upper_arm = bpy.context.active_object
+        assign_material(upper_arm, mat_sleeve)
+        add_bevel(upper_arm, width=0.05, segments=3)
+        shade_smooth(upper_arm)
+
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=24,
+            radius=0.27,
+            depth=0.72,
+            location=(side * 1.12, -0.42, 0.42),
+            rotation=(math.radians(52), math.radians(side * -12), 0)
+        )
+        bracer = bpy.context.active_object
+        assign_material(bracer, mat_glove)
+        add_bevel(bracer, width=0.05, segments=3)
+        shade_smooth(bracer)
+
+    # 3. Sculpted Red-Orange Outlaw Bandana / Scarf around Neck
+    bpy.ops.mesh.primitive_torus_add(
+        major_radius=0.64,
+        minor_radius=0.24,
+        major_segments=32,
+        minor_segments=16,
+        location=(0, -0.04, 1.38),
+        rotation=(math.radians(14), 0, 0)
+    )
+    scarf = bpy.context.active_object
+    scarf.scale = (1.08, 0.95, 0.92)
     bpy.ops.object.transform_apply(scale=True)
-    assign_material(head, mat_mask)
+    assign_material(scarf, mat_scarf)
+    shade_smooth(scarf)
+
+    # Front V-point of bandana
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=24,
+        radius1=0.52,
+        radius2=0.08,
+        depth=0.68,
+        location=(0, -0.46, 1.12),
+        rotation=(math.radians(158), 0, 0)
+    )
+    scarf_tip = bpy.context.active_object
+    scarf_tip.scale = (1.15, 0.55, 1.0)
+    bpy.ops.object.transform_apply(scale=True)
+    assign_material(scarf_tip, mat_scarf)
+    add_bevel(scarf_tip, width=0.03, segments=2)
+    shade_smooth(scarf_tip)
+
+    # 4. Cartoon Head, Ears, Nose & Goatee Chin
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=36, ring_count=24, radius=0.68, location=(0, -0.06, 2.06))
+    head = bpy.context.active_object
+    head.scale = (0.94, 0.88, 1.12)
+    bpy.ops.object.transform_apply(scale=True)
+    assign_material(head, mat_skin)
     shade_smooth(head)
 
-    # Expressive Brow & Eyes facing -Y
-    if style == "counter":
-        # Cyclops Visor with Brass Loupe Ring
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, -0.60, 2.04))
-        visor = bpy.context.active_object
-        visor.scale = (0.76, 0.15, 0.14)
-        bpy.ops.object.transform_apply(scale=True)
-        assign_material(visor, mat_eye)
-        add_bevel(visor, width=0.02, segments=2)
-        shade_smooth(visor)
-
-        bpy.ops.mesh.primitive_torus_add(
-            major_radius=0.19,
-            minor_radius=0.04,
-            major_segments=28,
-            minor_segments=12,
-            location=(0.20, -0.62, 2.04),
-            rotation=(math.radians(90), 0, 0)
+    # Ears
+    for side in (-1, 1):
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            segments=20,
+            ring_count=12,
+            radius=0.19,
+            location=(side * 0.66, -0.04, 2.02)
         )
-        loupe = bpy.context.active_object
-        assign_material(loupe, mat_accent)
-        shade_smooth(loupe)
-    else:
-        for side in (-1, 1):
-            bpy.ops.mesh.primitive_uv_sphere_add(
-                segments=20,
-                ring_count=12,
-                radius=0.13 if style != "saboteur" or side == 1 else 0.18,
-                location=(side * 0.25, -0.58, 2.02)
-            )
-            eye = bpy.context.active_object
-            assign_material(eye, mat_eye)
-            shade_smooth(eye)
-
-            # Angled Eyebrow Ridge
-            brow_tilt = -16 if style == "rookie" else 18
-            bpy.ops.mesh.primitive_cube_add(
-                size=1.0,
-                location=(side * 0.25, -0.60, 2.20),
-                rotation=(0, math.radians(side * brow_tilt), 0)
-            )
-            brow = bpy.context.active_object
-            brow.scale = (0.28, 0.12, 0.06)
-            bpy.ops.object.transform_apply(scale=True)
-            assign_material(brow, mat_accent)
-            add_bevel(brow, width=0.015, segments=2)
-            shade_smooth(brow)
-
-    # Mouth Grille / Vent Detail
-    for m_idx in range(-2, 3):
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(m_idx * 0.09, -0.61, 1.58))
-        tooth = bpy.context.active_object
-        tooth.scale = (0.05, 0.10, 0.16)
+        ear = bpy.context.active_object
+        ear.scale = (0.55, 0.82, 1.08)
         bpy.ops.object.transform_apply(scale=True)
-        assign_material(tooth, mat_accent if style == "dealer" else mat_dark)
-        add_bevel(tooth, width=0.01, segments=2)
-        shade_smooth(tooth)
+        assign_material(ear, mat_skin)
+        shade_smooth(ear)
 
-    # Character-Specific Headgear / Horns / Silhouette
-    if style == "rookie":
-        bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.82, depth=0.08, location=(0.06, -0.08, 2.58), rotation=(0, math.radians(8), 0))
-        brim = bpy.context.active_object
-        assign_material(brim, mat_accent)
-        add_bevel(brim, width=0.02, segments=2)
-        shade_smooth(brim)
+    # Goatee / Chin Beard
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=24, ring_count=14, radius=0.42, location=(0, -0.34, 1.62))
+    beard = bpy.context.active_object
+    beard.scale = (0.88, 0.72, 0.65)
+    bpy.ops.object.transform_apply(scale=True)
+    assign_material(beard, mat_hair)
+    shade_smooth(beard)
 
-        bpy.ops.mesh.primitive_uv_sphere_add(segments=28, ring_count=14, radius=0.56, location=(0.08, -0.08, 2.66), rotation=(0, math.radians(8), 0))
-        crown = bpy.context.active_object
-        crown.scale = (1.0, 1.0, 0.75)
-        bpy.ops.object.transform_apply(scale=True)
-        assign_material(crown, mat_cloak)
-        shade_smooth(crown)
+    # Cartoon Nose
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=20,
+        radius1=0.14,
+        radius2=0.05,
+        depth=0.28,
+        location=(0, -0.68, 1.98),
+        rotation=(math.radians(78), 0, 0)
+    )
+    nose = bpy.context.active_object
+    assign_material(nose, mat_skin)
+    add_bevel(nose, width=0.025, segments=2)
+    shade_smooth(nose)
 
-    elif style == "counter":
-        bpy.ops.mesh.primitive_cylinder_add(vertices=8, radius=0.88, depth=0.45, location=(0, 0.02, 1.38))
-        collar = bpy.context.active_object
-        assign_material(collar, mat_accent)
-        add_bevel(collar, width=0.03, segments=2)
-        shade_smooth(collar)
+    # 5. Domino Mask & Expressive Cartoon Eyes + Thick Eyebrows
+    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, -0.54, 2.12))
+    mask = bpy.context.active_object
+    mask.scale = (1.16, 0.30, 0.38)
+    bpy.ops.object.transform_apply(scale=True)
+    assign_material(mask, mat_mask)
+    add_bevel(mask, width=0.08, segments=4)
+    shade_smooth(mask)
 
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, -0.05, 2.55))
-        crest = bpy.context.active_object
-        crest.scale = (0.12, 0.75, 0.45)
-        bpy.ops.object.transform_apply(scale=True)
-        assign_material(crest, mat_accent)
-        add_bevel(crest, width=0.03, segments=2)
-        shade_smooth(crest)
-
-    elif style == "heavy":
-        bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0, -0.35, 1.55))
-        jaw = bpy.context.active_object
-        jaw.scale = (0.95, 0.65, 0.48)
-        bpy.ops.object.transform_apply(scale=True)
-        assign_material(jaw, mat_accent)
-        add_bevel(jaw, width=0.05, segments=3)
-        shade_smooth(jaw)
-
-        for side in (-1, 1):
-            bpy.ops.mesh.primitive_cone_add(
-                vertices=20,
-                radius1=0.22,
-                radius2=0.02,
-                depth=0.65,
-                location=(side * 1.15, -0.05, 1.35),
-                rotation=(0, math.radians(side * 28), 0)
-            )
-            spike = bpy.context.active_object
-            assign_material(spike, mat_accent)
-            shade_smooth(spike)
-
-    elif style == "saboteur":
-        bpy.ops.mesh.primitive_cone_add(
-            vertices=16,
-            radius1=0.34,
-            radius2=0.04,
-            depth=0.72,
-            location=(0, -0.78, 1.82),
-            rotation=(math.radians(78), 0, 0)
+    for side in (-1, 1):
+        # White Sclera
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            segments=24,
+            ring_count=14,
+            radius=0.145,
+            location=(side * 0.24, -0.64, 2.10)
         )
-        beak = bpy.context.active_object
-        assign_material(beak, mat_accent)
-        add_bevel(beak, width=0.02, segments=2)
-        shade_smooth(beak)
+        sclera = bpy.context.active_object
+        sclera.scale = (0.95, 0.52, 1.18)
+        bpy.ops.object.transform_apply(scale=True)
+        assign_material(sclera, mat_white)
+        shade_smooth(sclera)
 
-        # Cheek respirator canisters
-        for side in (-1, 1):
-            bpy.ops.mesh.primitive_cylinder_add(
-                vertices=20,
-                radius=0.14,
-                depth=0.24,
-                location=(side * 0.45, -0.52, 1.66),
-                rotation=(math.radians(65), 0, math.radians(side * -30))
-            )
-            can = bpy.context.active_object
-            assign_material(can, mat_accent)
-            add_bevel(can, width=0.015, segments=2)
-            shade_smooth(can)
+        # Dark Pupil
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            segments=18,
+            ring_count=12,
+            radius=0.068,
+            location=(side * 0.21, -0.71, 2.09)
+        )
+        pupil = bpy.context.active_object
+        pupil.scale = (0.9, 0.45, 1.1)
+        bpy.ops.object.transform_apply(scale=True)
+        assign_material(pupil, mat_pupil)
+        shade_smooth(pupil)
 
-    elif style == "dealer":
-        for side in (-1, 1):
-            bpy.ops.mesh.primitive_cone_add(
-                vertices=24,
-                radius1=0.22,
-                radius2=0.02,
-                depth=0.95,
-                location=(side * 0.58, -0.10, 2.72),
-                rotation=(math.radians(15), math.radians(side * -24), 0)
-            )
-            horn = bpy.context.active_object
-            assign_material(horn, mat_accent)
-            shade_smooth(horn)
+        # Thick Furrowed Eyebrow
+        bpy.ops.mesh.primitive_cube_add(
+            size=1.0,
+            location=(side * 0.26, -0.66, 2.30),
+            rotation=(0, math.radians(side * -16), 0)
+        )
+        brow = bpy.context.active_object
+        brow.scale = (0.34, 0.14, 0.09)
+        bpy.ops.object.transform_apply(scale=True)
+        assign_material(brow, mat_hair)
+        add_bevel(brow, width=0.025, segments=3)
+        shade_smooth(brow)
 
-        bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.58, depth=0.75, location=(0, -0.08, 2.85))
-        tophat = bpy.context.active_object
-        assign_material(tophat, mat_cloak)
-        add_bevel(tophat, width=0.03, segments=2)
-        shade_smooth(tophat)
+    # 6. Cheeky Cartoon Grin (or Mustache for Counter/Dealer)
+    bpy.ops.mesh.primitive_cube_add(
+        size=1.0,
+        location=(0.02, -0.63, 1.74),
+        rotation=(0, math.radians(-5), 0)
+    )
+    mouth_bg = bpy.context.active_object
+    mouth_bg.scale = (0.44, 0.12, 0.17)
+    bpy.ops.object.transform_apply(scale=True)
+    assign_material(mouth_bg, mat_mouth_dark)
+    add_bevel(mouth_bg, width=0.04, segments=3)
+    shade_smooth(mouth_bg)
 
-        bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.60, depth=0.12, location=(0, -0.08, 2.56))
-        hatband = bpy.context.active_object
-        assign_material(hatband, mat_accent)
-        shade_smooth(hatband)
+    bpy.ops.mesh.primitive_cube_add(
+        size=1.0,
+        location=(0.02, -0.66, 1.75),
+        rotation=(0, math.radians(-5), 0)
+    )
+    teeth = bpy.context.active_object
+    teeth.scale = (0.38, 0.10, 0.11)
+    bpy.ops.object.transform_apply(scale=True)
+    assign_material(teeth, mat_white)
+    add_bevel(teeth, width=0.03, segments=3)
+    shade_smooth(teeth)
+
+    # 7. Chunky Sculpted Cartoon Hair with Swoosh Lock
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=28, ring_count=16, radius=0.66, location=(0, 0.04, 2.48))
+    hair_main = bpy.context.active_object
+    hair_main.scale = (1.04, 0.96, 0.72)
+    bpy.ops.object.transform_apply(scale=True)
+    assign_material(hair_main, mat_hair)
+    shade_smooth(hair_main)
+
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=24,
+        radius1=0.46,
+        radius2=0.08,
+        depth=0.92,
+        location=(0.12, -0.22, 2.78),
+        rotation=(math.radians(-28), math.radians(28), math.radians(-18))
+    )
+    hair_swoosh = bpy.context.active_object
+    hair_swoosh.scale = (0.95, 0.72, 1.0)
+    bpy.ops.object.transform_apply(scale=True)
+    assign_material(hair_swoosh, mat_hair)
+    add_bevel(hair_swoosh, width=0.04, segments=3)
+    shade_smooth(hair_swoosh)
+
+    bpy.ops.mesh.primitive_cone_add(
+        vertices=20,
+        radius1=0.32,
+        radius2=0.06,
+        depth=0.65,
+        location=(-0.32, -0.15, 2.68),
+        rotation=(math.radians(-18), math.radians(-22), math.radians(12))
+    )
+    hair_side = bpy.context.active_object
+    assign_material(hair_side, mat_hair)
+    add_bevel(hair_side, width=0.03, segments=2)
+    shade_smooth(hair_side)
 
     export_glb(filename)
 
@@ -995,9 +1058,9 @@ if __name__ == "__main__":
     print("=== Starting CHAMBER LOADING Blender 3D Asset Pipeline ===")
     build_revolver_cylinder()
     build_revolver_frame()
-    build_shell_variant("shell_live.glb", hull_color=(0.86, 0.12, 0.14), tip_color=(0.88, 0.54, 0.22), rim_color=(0.90, 0.70, 0.20))
-    build_shell_variant("shell_blank.glb", hull_color=(0.45, 0.56, 0.68), tip_color=(0.75, 0.80, 0.86), rim_color=(0.78, 0.82, 0.86), is_blank=True)
-    build_shell_variant("shell_heavy.glb", hull_color=(0.95, 0.36, 0.08), tip_color=(0.95, 0.78, 0.22), rim_color=(0.95, 0.72, 0.15), is_heavy=True, emission_color=(0.9, 0.25, 0.05))
+    build_shell_variant("shell_live.glb", hull_color=(0.88, 0.66, 0.20), tip_color=(0.94, 0.76, 0.28), rim_color=(0.92, 0.72, 0.22), is_blank=True)
+    build_shell_variant("shell_blank.glb", hull_color=(0.68, 0.72, 0.78), tip_color=(0.82, 0.85, 0.90), rim_color=(0.78, 0.82, 0.86), is_blank=True)
+    build_shell_variant("shell_heavy.glb", hull_color=(0.95, 0.56, 0.14), tip_color=(0.96, 0.80, 0.24), rim_color=(0.95, 0.74, 0.18), is_heavy=True, emission_color=(0.85, 0.45, 0.08))
     build_shell_variant("shell_inverted.glb", hull_color=(0.56, 0.18, 0.88), tip_color=(0.82, 0.45, 0.98), rim_color=(0.85, 0.68, 0.22), emission_color=(0.6, 0.2, 0.95))
     build_aim_token()
     build_brass_bell()
@@ -1005,9 +1068,9 @@ if __name__ == "__main__":
     build_shell_tray()
     build_table_props()
 
-    build_opponent_bust("opponent_rookie.glb", mask_color=(0.88, 0.84, 0.76), accent_color=(0.68, 0.42, 0.20), eye_color=(0.95, 0.75, 0.25), style="rookie")
-    build_opponent_bust("opponent_counter.glb", mask_color=(0.22, 0.26, 0.32), accent_color=(0.85, 0.68, 0.22), eye_color=(0.15, 0.95, 0.55), style="counter")
-    build_opponent_bust("opponent_heavy.glb", mask_color=(0.32, 0.28, 0.26), accent_color=(0.82, 0.38, 0.16), eye_color=(0.98, 0.25, 0.12), style="heavy")
-    build_opponent_bust("opponent_saboteur.glb", mask_color=(0.28, 0.20, 0.36), accent_color=(0.75, 0.62, 0.28), eye_color=(0.75, 0.25, 0.98), style="saboteur")
-    build_opponent_bust("opponent_dealer.glb", mask_color=(0.15, 0.12, 0.14), accent_color=(0.96, 0.76, 0.20), eye_color=(1.0, 0.15, 0.15), style="dealer")
+    build_opponent_bust("opponent_rookie.glb", mask_color=(0.48, 0.24, 0.11), accent_color=(0.80, 0.30, 0.14), eye_color=(0.10, 0.08, 0.08), style="rookie")
+    build_opponent_bust("opponent_counter.glb", mask_color=(0.44, 0.22, 0.10), accent_color=(0.78, 0.32, 0.15), eye_color=(0.10, 0.08, 0.08), style="counter")
+    build_opponent_bust("opponent_heavy.glb", mask_color=(0.36, 0.18, 0.09), accent_color=(0.82, 0.28, 0.12), eye_color=(0.10, 0.08, 0.08), style="heavy")
+    build_opponent_bust("opponent_saboteur.glb", mask_color=(0.42, 0.20, 0.12), accent_color=(0.76, 0.26, 0.16), eye_color=(0.10, 0.08, 0.08), style="saboteur")
+    build_opponent_bust("opponent_dealer.glb", mask_color=(0.30, 0.14, 0.08), accent_color=(0.85, 0.24, 0.12), eye_color=(0.10, 0.08, 0.08), style="dealer")
     print("=== All CHAMBER LOADING .glb models exported successfully! ===")

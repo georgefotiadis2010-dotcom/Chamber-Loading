@@ -24,3 +24,37 @@ dialog::backdrop {
   overflow: hidden;
   overscroll-behavior: contain;
 }
+
+/* Natural interactions: hover, press, and accessible keyboard focus feedback */
+:where(button) {
+  transition: box-shadow 150ms ease-out, scale 150ms ease-out, background-color 150ms ease-out;
+}
+
+button:hover:not(:disabled) {
+  box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
+}
+
+button:active:not(:disabled) {
+  scale: 0.96;
+}
+
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid #fde047;
+  outline-offset: 3px;
+}
+
+/* Chunky 3D cartoon text outline matching image_1.png & image_2.png */
+.cartoon-stroke {
+  text-shadow:
+    -2px -2px 0 #261308,
+     2px -2px 0 #261308,
+    -2px  2px 0 #261308,
+     2px  2px 0 #261308,
+     0px  4px 8px rgba(0, 0, 0, 0.75);
+}
+
+.cartoon-stroke-lg {
+  -webkit-text-stroke: 3px #281409;
+  paint-order: stroke fill;
+  text-shadow: 0 5px 12px rgba(0, 0, 0, 0.8);
+}

@@ -11,7 +11,7 @@ import {
 } from '../../types/game';
 import { Revolver3D } from './Revolver3D';
 import { Card3D } from './Card3D';
-import { AimToken3D, BrassBell3D, HeartTokensRow3D } from './TabletopTokens3D';
+import { AimToken3D, BrassBell3D } from './TabletopTokens3D';
 import { CardTableEnvironment3D, OpponentBust3D } from './OpponentAndTable3D';
 
 export type CameraFocusMode = 'table' | 'opponent' | 'cards';
@@ -27,39 +27,41 @@ const FirstPersonCameraRig: React.FC<FirstPersonCameraRigProps> = ({
   phase,
   shakeIntensity,
 }) => {
-  const lookAtTargetRef = useRef(new THREE.Vector3(0, 0.08, -0.35));
+  const lookAtTargetRef = useRef(new THREE.Vector3(0, 0.32, -0.35));
 
   useFrame((state, delta) => {
     const pointerX = state.pointer.x;
     const pointerY = state.pointer.y;
 
-    const basePos = new THREE.Vector3(0, 4.35, 5.45);
-    const baseLook = new THREE.Vector3(0, 0.28, -0.62);
+    // Seated first-person perspective matching image_0.png, image_1.png, image_2.png
+    const basePos = new THREE.Vector3(0, 3.18, 4.92);
+    const baseLook = new THREE.Vector3(0, 0.22, -0.18);
 
     if (focusMode === 'opponent') {
-      basePos.set(0, 3.15, 4.45);
-      baseLook.set(0, 1.05, -3.5);
+      basePos.set(0, 2.55, 3.85);
+      baseLook.set(0, 0.72, -2.5);
     } else if (focusMode === 'cards') {
-      basePos.set(0, 4.15, 4.85);
-      baseLook.set(0, 0.0, 1.35);
+      basePos.set(0, 3.15, 4.35);
+      baseLook.set(0, 0.05, 1.35);
     } else if (
       phase === 'SPIN_CYLINDERS' ||
       phase === 'RESOLVE_CHAMBER' ||
       phase === 'RESOLVE_TRAP'
     ) {
-      basePos.set(0, 4.25, 4.75);
+      basePos.set(0, 3.18, 4.35);
       baseLook.set(0, 0.25, -0.15);
     } else if (phase === 'FIRE_PLAYER' || phase === 'FIRE_OPPONENT') {
-      basePos.set(0, 3.65, 4.85);
-      baseLook.set(0, 0.65, -0.45);
+      basePos.set(0, 2.95, 4.45);
+      baseLook.set(0, 0.45, -0.45);
     }
 
-    basePos.x += pointerX * 0.42;
-    basePos.y += pointerY * 0.24;
+    // Subtle mouse-driven camera parallax: look slightly down at your hand or up at the opponent
+    basePos.x += pointerX * 0.28;
+    basePos.y += pointerY * 0.18;
 
-    baseLook.x += pointerX * 0.65;
-    baseLook.y += pointerY * 0.55;
-    baseLook.z -= pointerY * 0.45;
+    baseLook.x += pointerX * 0.48;
+    baseLook.y += pointerY * 0.45;
+    baseLook.z -= pointerY * 0.35;
 
     if (shakeIntensity > 0.01) {
       basePos.x += (Math.random() - 0.5) * shakeIntensity * 0.55;
@@ -73,7 +75,15 @@ const FirstPersonCameraRig: React.FC<FirstPersonCameraRigProps> = ({
     state.camera.lookAt(lookAtTargetRef.current);
   });
 
-  return <PerspectiveCamera makeDefault position={[0, 4.45, 5.28]} fov={43} near={0.1} far={50} />;
+  return (
+    <PerspectiveCamera
+      makeDefault
+      position={[0, 3.08, 4.58]}
+      fov={40}
+      near={0.1}
+      far={50}
+    />
+  );
 };
 
 class GlbErrorBoundary extends Component<
@@ -132,6 +142,7 @@ export interface TabletopSceneProps {
   onSelectPlayerCard: (card: CardInstance) => void;
   onHoverCard?: (card: CardInstance | null) => void;
   onTogglePlayerAim: () => void;
+  onSelectPlayerAim?: (choice: AimChoice) => void;
   onRingBell: () => void;
 }
 
@@ -170,8 +181,12 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
   onSelectPlayerCard,
   onHoverCard,
   onTogglePlayerAim,
+  onSelectPlayerAim,
   onRingBell,
 }) => {
+  const hasLockedCard =
+    selectedPlayerCard !== null || selectedLoadCards.length > 0;
+
   return (
     <>
       <FirstPersonCameraRig
@@ -180,29 +195,32 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
         shakeIntensity={shakeIntensity}
       />
 
-      {/* Atmospheric Dark Saloon Background & Fog */}
-      <color attach="background" args={['#09070a']} />
-      <fog attach="fog" args={['#09070a', 9.5, 22]} />
+      {/* Warm Dim Tavern Background & Depth Fog */}
+      <color attach="background" args={['#140e0c']} />
+      <fog attach="fog" args={['#140e0c', 7.5, 18]} />
 
-      {/* Warm Overhead Lamp & Rim Lighting */}
-      <ambientLight intensity={0.85} color="#ffedd5" />
+      {/* Soft Studio / Tabletop Lighting from Warm Overhead Hanging Lamp */}
+      <ambientLight intensity={0.95} color="#ffedd5" />
       <spotLight
-        position={[0, 8.2, 0.8]}
-        angle={0.72}
-        penumbra={0.65}
-        intensity={52}
-        color="#ffd89b"
+        position={[0, 6.2, 0.4]}
+        angle={0.78}
+        penumbra={0.75}
+        intensity={48}
+        color="#ffd699"
         castShadow
         shadow-mapSize={[1024, 1024]}
         shadow-bias={-0.0002}
       />
-      <directionalLight position={[4, 5, 4]} intensity={1.2} color="#fde68a" />
-      <pointLight position={[0, 2.6, -3.5]} intensity={10} color={opponent.eyeColor} distance={7} />
+      <directionalLight position={[2.5, 4.5, 3.8]} intensity={1.15} color="#fde68a" />
+      <pointLight position={[0, 2.8, -1.2]} intensity={12} color="#ffb74d" distance={8} />
 
-      {/* 3D Card Table & Props */}
-      <CardTableEnvironment3D useBlenderAssets={useBlenderAssets} />
+      {/* 3D Dark Wood Planked Table, Overhead Lamp & Tavern Room Props */}
+      <CardTableEnvironment3D
+        useBlenderAssets={useBlenderAssets}
+        hasLockedCard={hasLockedCard}
+      />
 
-      {/* 3D Opponent Bust across the table */}
+      {/* 3D Seated Cartoon Opponent across the table */}
       <OpponentBust3D
         opponent={opponent}
         phase={phase}
@@ -236,7 +254,7 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
         useBlenderAssets={useBlenderAssets}
       />
 
-      {/* Player's 3D Cards Row */}
+      {/* Player's Foreground 3D Cards Row (LOAD LIVE, STRIP SHELL, PAD CYLINDER) */}
       {playerHand.map((card, idx) => {
         const isLocked =
           phase === 'PRE_ROUND_LOAD'
@@ -257,7 +275,7 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
         );
       })}
 
-      {/* Opponent's 3D Cards Row */}
+      {/* Opponent's Far Row of Smaller Face-Up 3D Cards */}
       {opponentHand.map((card, idx) => (
         <Card3D
           key={card.uid}
@@ -270,7 +288,7 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
         />
       ))}
 
-      {/* Active Face-Down Table Traps on the Felt */}
+      {/* Active Mid-Table Slot Cards on the Wood Planks */}
       {playerTableTrap && (
         <Card3D
           key={`trap_p_${playerTableTrap.uid}`}
@@ -300,7 +318,7 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
         />
       )}
 
-      {/* Player & Opponent 3D Aim Tokens */}
+      {/* Player's Two Distinct 3D Aim Chips (AIM OPPONENT & AIM SELF) + Opponent's Aim Chip */}
       <AimToken3D
         owner="player"
         aim={playerAim}
@@ -308,6 +326,7 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
         phase={phase}
         useBlenderAssets={useBlenderAssets}
         onToggleAim={onTogglePlayerAim}
+        onSelectAim={onSelectPlayerAim}
       />
       <AimToken3D
         owner="opponent"
@@ -317,26 +336,12 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
         useBlenderAssets={useBlenderAssets}
       />
 
-      {/* Physical 3D Brass LOCK IN Bell */}
+      {/* Physical 3D Brass LOCK IN Bell next to LOCK IN SLOT */}
       <BrassBell3D
         readyToLockIn={readyToLockIn}
         phase={phase}
         useBlenderAssets={useBlenderAssets}
         onRingBell={onRingBell}
-      />
-
-      {/* 3D Ruby Heart HP Tokens */}
-      <HeartTokensRow3D
-        owner="player"
-        hp={playerHp}
-        maxHp={playerMaxHp}
-        useBlenderAssets={useBlenderAssets}
-      />
-      <HeartTokensRow3D
-        owner="opponent"
-        hp={opponentHp}
-        maxHp={opponentMaxHp}
-        useBlenderAssets={useBlenderAssets}
       />
     </>
   );
