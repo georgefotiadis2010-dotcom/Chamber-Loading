@@ -50,63 +50,45 @@ function drawCardIcon(ctx: CanvasRenderingContext2D, card: CardDef, cx: number, 
     const isHollow = card.id === 'red_hollowpoint';
     // Brass base
     ctx.fillStyle = '#fbbf24';
-    drawRoundedRect(ctx, -18, 22, 36, 22, 4);
+    drawRoundedRect(ctx, -20, 22, 40, 24, 5);
     ctx.fill();
     // Red/Orange casing
     ctx.fillStyle = isHollow ? '#f97316' : '#ef4444';
-    drawRoundedRect(ctx, -16, -24, 32, 48, 4);
+    drawRoundedRect(ctx, -18, -26, 36, 50, 5);
     ctx.fill();
     // Bullet nose
     ctx.fillStyle = '#f59e0b';
     ctx.beginPath();
-    ctx.arc(0, -26, 16, Math.PI, 0);
+    ctx.arc(0, -28, 18, Math.PI, 0);
     ctx.fill();
-
-    ctx.fillStyle = '#fef08a';
-    ctx.font = '900 22px "JetBrains Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(isHollow ? '1 DMG +1' : '1 DMG -1', 0, 72);
   } else if (card.id === 'blue_silverblank' || card.id === 'blue_hairtrigger') {
     const isHair = card.id === 'blue_hairtrigger';
     // Silver blank shell
     ctx.fillStyle = '#cbd5e1';
-    drawRoundedRect(ctx, -16, -28, 32, 62, 6);
+    drawRoundedRect(ctx, -18, -32, 36, 68, 7);
     ctx.fill();
     ctx.fillStyle = isHair ? '#3b82f6' : '#38bdf8';
-    drawRoundedRect(ctx, -13, -16, 26, 36, 4);
+    drawRoundedRect(ctx, -14, -18, 28, 40, 5);
     ctx.fill();
-
-    ctx.fillStyle = '#bae6fd';
-    ctx.font = '900 22px "JetBrains Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(isHair ? 'KEEP +1' : 'KEEP + PEEK', 0, 72);
   } else if (card.id === 'purple_jinxpin') {
     // Purple X / Jinx Pin
     ctx.strokeStyle = '#c084fc';
-    ctx.lineWidth = 12;
+    ctx.lineWidth = 14;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.moveTo(-38, -38);
-    ctx.lineTo(38, 38);
-    ctx.moveTo(38, -38);
-    ctx.lineTo(-38, 38);
+    ctx.moveTo(-36, -36);
+    ctx.lineTo(36, 36);
+    ctx.moveTo(36, -36);
+    ctx.lineTo(-36, 36);
     ctx.stroke();
-
-    ctx.fillStyle = '#f3e8ff';
-    ctx.font = '900 22px "JetBrains Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('SKIP TURN', 0, 72);
   } else if (card.id === 'purple_recoilcurse') {
     // Recoil loop arrow
     ctx.strokeStyle = '#f472b6';
-    ctx.lineWidth = 8;
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.arc(0, -4, 34, 0.3, Math.PI * 1.85);
+    ctx.arc(0, 0, 36, 0.35, Math.PI * 1.85);
     ctx.stroke();
-
-    ctx.fillStyle = '#fbcfe8';
-    ctx.font = '900 22px "JetBrains Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('FORCE SELF', 0, 72);
   }
 
   ctx.restore();
@@ -162,51 +144,67 @@ export function getCardFrontTexture(cardId: CardId): THREE.CanvasTexture {
 
   // 6. Central Illustration Medallion Window
   ctx.fillStyle = '#1b1822';
-  drawRoundedRect(ctx, 56, 178, 400, 268, 20);
+  drawRoundedRect(ctx, 56, 174, 400, 224, 20);
   ctx.fill();
   ctx.lineWidth = 4;
   ctx.strokeStyle = card.accentColor;
-  drawRoundedRect(ctx, 56, 178, 400, 268, 20);
+  drawRoundedRect(ctx, 56, 174, 400, 224, 20);
   ctx.stroke();
 
-  drawCardIcon(ctx, card, 256, 312);
+  drawCardIcon(ctx, card, 256, 286);
 
-  // 7. Short Tag Pill below art
-  ctx.fillStyle = '#272330';
-  drawRoundedRect(ctx, 76, 466, 360, 52, 12);
+  // 7. Simplified Two-Box Effect Layout (IN GUN / AS TRAP)
+  const drawWrapped = (text: string, startY: number, maxW: number, lineH: number) => {
+    const words = text.split(' ');
+    let line = '';
+    let y = startY;
+    for (const w of words) {
+      const test = line ? `${line} ${w}` : w;
+      if (ctx.measureText(test).width > maxW) {
+        ctx.fillText(line, 256, y);
+        line = w;
+        y += lineH;
+      } else {
+        line = test;
+      }
+    }
+    if (line) ctx.fillText(line, 256, y);
+  };
+
+  // IN GUN box
+  ctx.fillStyle = '#1d1926';
+  drawRoundedRect(ctx, 56, 420, 400, 124, 14);
   ctx.fill();
-  ctx.strokeStyle = card.accentColor;
-  ctx.lineWidth = 2.5;
-  drawRoundedRect(ctx, 76, 466, 360, 52, 12);
+  ctx.strokeStyle = '#f59e0b66';
+  ctx.lineWidth = 2;
+  drawRoundedRect(ctx, 56, 420, 400, 124, 14);
   ctx.stroke();
 
-  ctx.fillStyle = card.accentColor;
-  ctx.font = '900 27px "JetBrains Mono", monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(card.shortTag, 256, 501);
+  ctx.fillStyle = '#fbbf24';
+  ctx.font = '900 20px "JetBrains Mono", monospace';
+  ctx.fillText('IN GUN', 256, 450);
 
-  // 8. Multi-line Crisp Description Box
   ctx.fillStyle = '#f8fafc';
   ctx.font = '700 25px "Space Grotesk", sans-serif';
-  const words = card.description.split(' ');
-  let line = '';
-  let y = 568;
-  for (const w of words) {
-    const test = line ? `${line} ${w}` : w;
-    if (ctx.measureText(test).width > 380) {
-      ctx.fillText(line, 256, y);
-      line = w;
-      y += 34;
-    } else {
-      line = test;
-    }
-  }
-  if (line) ctx.fillText(line, 256, y);
+  drawWrapped(card.chamberEffectText, 486, 368, 32);
 
-  // 9. Bottom Corner Revolver Cylinder Indices
-  ctx.fillStyle = '#94a3b8';
-  ctx.font = '700 18px "JetBrains Mono", monospace';
-  ctx.fillText('CHAMBER LOADING // 6-SLOT', 256, 686);
+  // AS TRAP box
+  ctx.fillStyle = '#1d1926';
+  drawRoundedRect(ctx, 56, 562, 400, 124, 14);
+  ctx.fill();
+  ctx.strokeStyle = '#c084fc66';
+  ctx.lineWidth = 2;
+  drawRoundedRect(ctx, 56, 562, 400, 124, 14);
+  ctx.stroke();
+
+  ctx.fillStyle = '#c084fc';
+  ctx.font = '900 20px "JetBrains Mono", monospace';
+  ctx.fillText('AS TRAP', 256, 592);
+
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = '700 25px "Space Grotesk", sans-serif';
+  drawWrapped(card.tableTrapText, 628, 368, 32);
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;

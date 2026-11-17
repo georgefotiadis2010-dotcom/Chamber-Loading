@@ -118,6 +118,7 @@ export const App: React.FC = () => {
   const [shakeIntensity, setShakeIntensity] = useState<number>(0);
 
   // UI & Camera State
+  const [hoveredCard, setHoveredCard] = useState<CardInstance | null>(null);
   const [muted, setMuted] = useState<boolean>(false);
   const [focusMode, setFocusMode] = useState<CameraFocusMode>('table');
   const [useBlenderAssets, setUseBlenderAssets] = useState<boolean>(true);
@@ -871,6 +872,7 @@ export const App: React.FC = () => {
         focusMode={focusMode}
         useBlenderAssets={useBlenderAssets}
         onSelectPlayerCard={handleSelectPlayerCard}
+        onHoverCard={setHoveredCard}
         onTogglePlayerAim={() =>
           setPlayerAim((prev) => (prev === 'opponent' ? 'self' : 'opponent'))
         }
@@ -902,11 +904,13 @@ export const App: React.FC = () => {
         playerTableTrap={playerTableTrap}
         opponentTableTrap={opponentTableTrap}
         playerAim={playerAim}
+        hoveredCard={hoveredCard}
         muted={muted}
         focusMode={focusMode}
         useBlenderAssets={useBlenderAssets}
         stats={stats}
         onSelectPlayerCard={handleSelectPlayerCard}
+        onHoverCard={setHoveredCard}
         onTogglePlayerAim={() =>
           setPlayerAim((prev) => (prev === 'opponent' ? 'self' : 'opponent'))
         }

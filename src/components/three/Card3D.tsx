@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { RoundedBox } from '@react-three/drei';
 import * as THREE from 'three';
@@ -16,6 +16,7 @@ interface Card3DProps {
   isTrapRevealed?: boolean;
   phase: TurnPhase;
   onSelectCard?: (card: CardInstance) => void;
+  onHoverCard?: (card: CardInstance | null) => void;
 }
 
 export const Card3D: React.FC<Card3DProps> = ({
@@ -28,6 +29,7 @@ export const Card3D: React.FC<Card3DProps> = ({
   isTrapRevealed = false,
   phase,
   onSelectCard,
+  onHoverCard,
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
@@ -65,28 +67,28 @@ export const Card3D: React.FC<Card3DProps> = ({
     if (!groupRef.current) return;
 
     const targetPos = new THREE.Vector3(rowX, rowY, rowZ);
-    let targetRotX = isTableTrap ? 0 : isPlayer ? -0.16 : -0.06;
+    let targetRotX = isTableTrap ? 0 : isPlayer ? 0.14 : -0.06;
     let targetRotY = 0;
     let targetRotZ = isFaceDown ? Math.PI : 0;
     let targetScale = isTableTrap ? 0.88 : 0.92;
 
     if (isRevealingInCenter) {
       targetPos.set(0, 0.38, isPlayer ? 0.35 : -0.35);
-      targetRotX = 0;
+      targetRotX = 0.2;
       targetRotZ = 0;
       targetScale = 1.15;
     } else if (isSelectedLocked && !isTableTrap) {
       targetPos.copy(lockPos);
-      targetRotX = 0;
+      targetRotX = isPlayer ? 0.12 : 0;
       targetRotY = 0;
       targetRotZ = phase === 'PRE_ROUND_LOAD' ? Math.PI : 0;
       targetPos.y = 0.14;
       targetScale = 0.98;
     } else if (hovered && !isTableTrap) {
-      targetPos.y = 0.38;
-      targetPos.z = isPlayer ? rowZ - 0.24 : rowZ + 0.18;
-      targetRotX = isPlayer ? -0.34 : 0.22;
-      targetScale = 1.16;
+      targetPos.y = 0.54;
+      targetPos.z = isPlayer ? rowZ + 0.36 : rowZ - 0.15;
+      targetRotX = isPlayer ? 0.46 : -0.22;
+      targetScale = 1.24;
     }
 
     const speed = Math.min(1, delta * 11);
@@ -99,11 +101,23 @@ export const Card3D: React.FC<Card3DProps> = ({
     groupRef.current.scale.setScalar(s);
   });
 
+  useEffect(() => {
+    return () => {
+      if (hovered) {
+        onHoverCard?.(null);
+        document.body.style.cursor = 'auto';
+      }
+    };
+  }, [hovered, onHoverCard]);
+
   const handlePointerOver = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     if (!hovered) {
       setHovered(true);
       soundEngine.playCardHover();
+      if (isPlayer || isTrapRevealed) {
+        onHoverCard?.(card);
+      }
       if (canInteract) {
         document.body.style.cursor = 'pointer';
       }
@@ -113,6 +127,7 @@ export const Card3D: React.FC<Card3DProps> = ({
   const handlePointerOut = (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     setHovered(false);
+    onHoverCard?.(null);
     document.body.style.cursor = 'auto';
   };
 

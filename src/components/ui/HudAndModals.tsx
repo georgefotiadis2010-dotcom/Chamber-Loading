@@ -221,6 +221,7 @@ interface HudAndModalsProps {
   playerTableTrap: CardInstance | null;
   opponentTableTrap: CardInstance | null;
   playerAim: AimChoice;
+  hoveredCard: CardInstance | null;
   muted: boolean;
   focusMode: CameraFocusMode;
   useBlenderAssets: boolean;
@@ -231,6 +232,7 @@ interface HudAndModalsProps {
     damageDealt: number;
   };
   onSelectPlayerCard: (card: CardInstance) => void;
+  onHoverCard: (card: CardInstance | null) => void;
   onTogglePlayerAim: () => void;
   onRingBell: () => void;
   onToggleChamberCounts: () => void;
@@ -266,11 +268,13 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
   playerTableTrap,
   opponentTableTrap,
   playerAim,
+  hoveredCard,
   muted,
   focusMode,
   useBlenderAssets,
   stats,
   onSelectPlayerCard,
+  onHoverCard,
   onTogglePlayerAim,
   onRingBell,
   onToggleChamberCounts,
@@ -507,6 +511,40 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
       </div>
 
       {/* ==================================================================== */}
+      {/* HOVERED CARD PREVIEW                                                 */}
+      {/* ==================================================================== */}
+      {hoveredCard && phase !== 'GAME_OVER' && phase !== 'VICTORY' && (
+        <div className="pointer-events-none flex justify-center mb-2">
+          <div
+            style={{ borderColor: hoveredCard.def.borderColor }}
+            className="w-full max-w-sm rounded-xl bg-stone-950/95 border-2 px-4 py-3 backdrop-blur-md shadow-2xl"
+          >
+            <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-stone-800">
+              <span className="font-serif font-black text-sm text-amber-100 tracking-wide">
+                {hoveredCard.def.name}
+              </span>
+              <span
+                className="font-mono text-[10px] font-extrabold px-2 py-0.5 rounded bg-black/50"
+                style={{ color: hoveredCard.def.accentColor }}
+              >
+                {hoveredCard.def.badgeText}
+              </span>
+            </div>
+            <div className="mt-2 space-y-1 text-xs">
+              <p className="text-stone-100">
+                <span className="font-mono font-bold text-amber-400">IN GUN: </span>
+                {hoveredCard.def.chamberEffectText}
+              </p>
+              <p className="text-stone-300">
+                <span className="font-mono font-bold text-purple-300">AS TRAP: </span>
+                {hoveredCard.def.tableTrapText}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
       {/* BOTTOM BAR: Shared Cylinder Telemetry, Hand Cards & Action Controls  */}
       {/* ==================================================================== */}
       <footer className="flex flex-wrap items-end justify-between gap-2">
@@ -542,6 +580,8 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
                   key={card.uid}
                   type="button"
                   disabled={disabled}
+                  onMouseEnter={() => onHoverCard(card)}
+                  onMouseLeave={() => onHoverCard(null)}
                   onClick={() => {
                     soundEngine.playCardSlide();
                     onSelectPlayerCard(card);
@@ -549,7 +589,7 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
                   style={{
                     borderColor: isSelected ? '#fbbf24' : card.def.borderColor,
                   }}
-                  title={`${card.def.name} — ${card.def.chamberEffectText} | TRAP: ${card.def.tableTrapText}`}
+                  title={`${card.def.name} — ${card.def.shortTag}`}
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border-2 font-mono text-[11px] font-bold transition-all ${
                     isSelected
                       ? 'bg-amber-950 text-amber-200 ring-1 ring-amber-300 -translate-y-0.5'
@@ -739,10 +779,10 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-stone-200">
-                  <strong className="text-amber-300">Chamber:</strong> {c.chamberEffectText}
+                  <strong className="text-amber-300">In Gun:</strong> {c.chamberEffectText}
                 </p>
                 <p className="text-xs text-stone-400">
-                  <strong className="text-purple-300">Table Trap:</strong> {c.tableTrapText}
+                  <strong className="text-purple-300">As Trap:</strong> {c.tableTrapText}
                 </p>
               </div>
             );
@@ -785,9 +825,9 @@ export const HudAndModals: React.FC<HudAndModalsProps> = ({
             <strong className="text-amber-300 font-mono uppercase block mb-1">
               2. Card Types
             </strong>
-            <span className="text-red-400 font-bold">Red (Live):</span> 1 DMG + secondary effect.{' '}
-            <span className="text-sky-300 font-bold">Blue (Blank):</span> 0 DMG; self-shot keeps your turn & triggers utility.{' '}
-            <span className="text-purple-400 font-bold">Purple (Trap):</span> 0 direct DMG; triggers immediate penalty on the shooter.
+            <span className="text-red-400 font-bold">Red (Live):</span> 1 DMG + bonus effect.{' '}
+            <span className="text-sky-300 font-bold">Blue (Blank):</span> 0 DMG; shoot self to keep your turn.{' '}
+            <span className="text-purple-400 font-bold">Purple (Trap):</span> 0 DMG; punishes whoever fires it.
           </div>
           <div className="p-3 rounded-xl bg-stone-900 border border-stone-800">
             <strong className="text-amber-300 font-mono uppercase block mb-1">

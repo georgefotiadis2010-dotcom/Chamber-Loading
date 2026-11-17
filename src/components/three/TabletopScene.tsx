@@ -130,6 +130,7 @@ export interface TabletopSceneProps {
   focusMode: CameraFocusMode;
   useBlenderAssets: boolean;
   onSelectPlayerCard: (card: CardInstance) => void;
+  onHoverCard?: (card: CardInstance | null) => void;
   onTogglePlayerAim: () => void;
   onRingBell: () => void;
 }
@@ -167,6 +168,7 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
   focusMode,
   useBlenderAssets,
   onSelectPlayerCard,
+  onHoverCard,
   onTogglePlayerAim,
   onRingBell,
 }) => {
@@ -250,6 +252,7 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
             isSelectedLocked={isLocked}
             phase={phase}
             onSelectCard={onSelectPlayerCard}
+            onHoverCard={onHoverCard}
           />
         );
       })}
@@ -279,6 +282,7 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
           isTableTrap
           isTrapRevealed={revealedTrapOwner === 'player'}
           phase={phase}
+          onHoverCard={onHoverCard}
         />
       )}
       {opponentTableTrap && (
@@ -292,6 +296,7 @@ const SceneContents: React.FC<TabletopSceneProps> = ({
           isTableTrap
           isTrapRevealed={revealedTrapOwner === 'opponent'}
           phase={phase}
+          onHoverCard={onHoverCard}
         />
       )}
 
