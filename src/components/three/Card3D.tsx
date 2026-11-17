@@ -148,6 +148,14 @@ export const Card3D: React.FC<Card3DProps> = ({
   });
 
   useEffect(() => {
+    if (isSelectedLocked && hovered) {
+      setHovered(false);
+      onHoverCard?.(null);
+      document.body.style.cursor = 'auto';
+    }
+  }, [isSelectedLocked, hovered, onHoverCard]);
+
+  useEffect(() => {
     return () => {
       if (hovered) {
         onHoverCard?.(null);
